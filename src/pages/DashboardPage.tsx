@@ -163,7 +163,7 @@ export default function DashboardPage() {
             />
           )}
           {actions.length > 0 && (
-            <nav aria-label="Quick actions" className="grid grid-cols-4 gap-2">
+            <nav aria-label="Quick actions" className="grid grid-cols-4 gap-3 sm:gap-4">
               {actions.map((a) => <QuickAction key={a.label} icon={a.icon} label={a.label} ariaLabel={a.aria} to={a.to} />)}
             </nav>
           )}

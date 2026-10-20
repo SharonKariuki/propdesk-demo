@@ -97,11 +97,12 @@ export function HeroCard({ eyebrow, value, subline, progress, footLeft, footRigh
 // ─── quick actions ───────────────────────────────────────────────────────────
 export function QuickAction({ icon: Icon, label, to, ariaLabel }: { icon: LucideIcon; label: string; to: string; ariaLabel?: string }) {
   return (
-    <Link to={to} aria-label={ariaLabel ?? label} className="group flex flex-col items-center gap-1.5 text-center">
-      <span className="glass flex h-[54px] w-[54px] items-center justify-center !rounded-[18px] transition-transform group-active:scale-95">
-        <Icon className="h-[18px] w-[18px] text-content" strokeWidth={1.7} />
+    <Link to={to} aria-label={ariaLabel ?? label} className="group flex min-w-0 flex-col items-center gap-2 text-center">
+      {/* Fills its column as a square, up to 104px — big, thick liquid glass. */}
+      <span className="glass-liquid flex aspect-square w-full max-w-[104px] items-center justify-center rounded-[24px] group-hover:-translate-y-0.5 group-active:scale-95">
+        <Icon className="h-6 w-6 text-content" strokeWidth={1.6} />
       </span>
-      <span className="text-[11.5px] font-medium text-content">{label}</span>
+      <span className="truncate text-[12.5px] font-medium text-content">{label}</span>
     </Link>
   );
 }

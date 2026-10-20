@@ -307,6 +307,35 @@
   .glass-strong {
     background: var(--glass-strong-bg);
   }
+  /* Liquid glass — the quick-action tiles. Thicker than .glass: a bright top
+     highlight, a soft sheen inside, and a deeper float. */
+  .glass-liquid {
+    background:
+      radial-gradient(120% 80% at 30% 0%, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 60%),
+      var(--glass);
+    backdrop-filter: blur(26px) saturate(185%);
+    -webkit-backdrop-filter: blur(26px) saturate(185%);
+    border: 1px solid var(--glass-edge);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      inset 0 -10px 20px rgba(255, 255, 255, 0.14),
+      0 14px 32px rgba(20, 24, 35, 0.16);
+    transition: transform 150ms ease, box-shadow 150ms ease;
+  }
+  .glass-liquid:hover {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -10px 20px rgba(255, 255, 255, 0.18),
+      0 18px 40px rgba(20, 24, 35, 0.2);
+  }
+  .dark .glass-liquid {
+    background:
+      radial-gradient(120% 80% at 30% 0%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 60%),
+      var(--glass);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 14px 32px rgba(0, 0, 0, 0.45);
+  }
   /* A glass panel (rather than a pill) — used for the sidebar and sheets. */
   .glass-panel {
     background: var(--glass-strong-bg);

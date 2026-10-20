@@ -132,11 +132,11 @@ export default function MobileNav() {
               </button>
             </div>
             {actions.length > 0 && (
-              <div className="mb-4 grid grid-cols-4 gap-2">
+              <div className="mb-4 grid grid-cols-4 gap-3">
                 {actions.slice(0, 8).map(({ label, to, icon: Icon }) => (
-                  <Link key={label} to={to} className="flex flex-col items-center gap-1.5 text-center">
-                    <span className="glass flex h-[54px] w-[54px] items-center justify-center rounded-[18px]">
-                      <Icon className="h-[18px] w-[18px]" strokeWidth={1.7} />
+                  <Link key={label} to={to} className="flex min-w-0 flex-col items-center gap-2 text-center">
+                    <span className="glass-liquid flex aspect-square w-full max-w-[88px] items-center justify-center rounded-[22px]">
+                      <Icon className="h-[22px] w-[22px]" strokeWidth={1.6} />
                     </span>
                     <span className="text-[11.5px] font-medium leading-tight text-content">{label}</span>
                   </Link>
