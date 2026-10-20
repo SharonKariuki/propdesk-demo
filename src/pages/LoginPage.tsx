@@ -15,49 +15,34 @@ import { useAuth } from "@/hooks/useAuth";
 const DEMO_PASSWORD = "demo1234";
 
 const DEMO_ACCOUNTS = [
-  { email: "owner@mawingu.test", role: "Owner / Admin", note: "Everything, including voids, credits, roles and the activity log" },
-  { email: "accountant@mawingu.test", role: "Accountant", note: "Payments, expenses, reports and accounting — but can't reverse money" },
-  { email: "caretaker@mawingu.test", role: "Caretaker", note: "Buildings, tenant contacts, water readings and repairs — no money" },
+  { email: "owner@mawingu.test", role: "Owner" },
+  { email: "accountant@mawingu.test", role: "Accountant" },
+  { email: "caretaker@mawingu.test", role: "Caretaker" },
 ];
 
-/** Demo mode only: one tap signs in as a synthetic account. */
+/** Demo mode only: one tap signs in as a synthetic account. Sits on the wash, not a card. */
 function DemoAccounts({ onPick, busy }: { onPick: (email: string) => void; busy: boolean }) {
   return (
-    <div className="card p-5 sm:p-8">
-      <p className="eyebrow flex items-center gap-1.5">
-        <span className="inline-block h-[7px] w-[7px] rounded-full bg-gold" aria-hidden />
-        Demo
+    <div>
+      <p className="text-xs text-content-muted">
+        Demo accounts · password <span className="font-mono text-content">{DEMO_PASSWORD}</span>
       </p>
-      <h2 className="mt-2 text-2xl font-semibold text-content">Try the demo</h2>
-      <p className="mt-2 text-[13px] text-content-muted">
-        Pick a role to sign in straight away. Every account uses the password{" "}
-        <span className="font-mono text-content">{DEMO_PASSWORD}</span>.
-      </p>
-      <ul className="mt-5 grid gap-2">
+      <ul className="mt-2.5 grid gap-1.5">
         {DEMO_ACCOUNTS.map((a) => (
           <li key={a.email}>
             <button
               type="button"
               disabled={busy}
               onClick={() => onPick(a.email)}
-              className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:border-border-strong hover:bg-hover/60 disabled:opacity-60"
+              className="glass group flex h-10 w-full items-center gap-2 px-4 text-left transition-[filter] hover:brightness-[1.04] disabled:opacity-60"
             >
-              <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-expected text-[11.5px] font-semibold text-content">
-                {a.role.charAt(0)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-semibold text-content">{a.role}</span>
-                <span className="block text-xs leading-snug text-content-muted">{a.note}</span>
-                <span className="mt-0.5 block truncate font-mono text-[11.5px] text-content-muted">{a.email}</span>
-              </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-content-muted transition-transform group-hover:translate-x-0.5 group-hover:text-content" strokeWidth={1.7} />
+              <span className="w-[76px] shrink-0 text-[13px] font-semibold text-content">{a.role}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-content-muted">{a.email}</span>
+              <ArrowRight className="h-3.5 w-3.5 shrink-0 text-content-muted transition-transform group-hover:translate-x-0.5 group-hover:text-content" strokeWidth={1.7} />
             </button>
           </li>
         ))}
       </ul>
-      <p className="mt-5 text-xs text-content-muted">
-        Everything here is synthetic and stays in this browser — no SMS, email, payment or bank request is ever sent.
-      </p>
     </div>
   );
 }
@@ -125,7 +110,6 @@ export default function LoginPage() {
   return (
     <AuthShell
       title="Sign in"
-      subtitle="Your buildings, tenants and collections, in one place."
       aside={isLocalProvider ? (
         <DemoAccounts
           busy={submitting}
