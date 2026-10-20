@@ -15,22 +15,25 @@ import { useAuth } from "@/hooks/useAuth";
 const DEMO_PASSWORD = "demo1234";
 
 const DEMO_ACCOUNTS = [
-  { email: "owner@mawingu.test", role: "Owner / Admin", note: "Everything" },
-  { email: "accountant@mawingu.test", role: "Accountant", note: "Records money" },
-  { email: "caretaker@mawingu.test", role: "Caretaker", note: "On-site work" },
+  { email: "owner@mawingu.test", role: "Owner / Admin", note: "Everything, including voids, credits, roles and the activity log" },
+  { email: "accountant@mawingu.test", role: "Accountant", note: "Payments, expenses, reports and accounting — but can't reverse money" },
+  { email: "caretaker@mawingu.test", role: "Caretaker", note: "Buildings, tenant contacts, water readings and repairs — no money" },
 ];
 
 /** Demo mode only: one tap signs in as a synthetic account. */
 function DemoAccounts({ onPick, busy }: { onPick: (email: string) => void; busy: boolean }) {
   return (
-    <div className="mt-6 border-t border-border pt-5">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[13px] font-semibold text-content">Try the demo</p>
-        <p className="text-xs text-content-muted">
-          password <span className="font-mono text-content">{DEMO_PASSWORD}</span>
-        </p>
-      </div>
-      <ul className="mt-3 grid gap-2">
+    <div className="card p-5 sm:p-8">
+      <p className="eyebrow flex items-center gap-1.5">
+        <span className="inline-block h-[7px] w-[7px] rounded-full bg-gold" aria-hidden />
+        Demo
+      </p>
+      <h2 className="mt-2 text-2xl font-semibold text-content">Try the demo</h2>
+      <p className="mt-2 text-[13px] text-content-muted">
+        Pick a role to sign in straight away. Every account uses the password{" "}
+        <span className="font-mono text-content">{DEMO_PASSWORD}</span>.
+      </p>
+      <ul className="mt-5 grid gap-2">
         {DEMO_ACCOUNTS.map((a) => (
           <li key={a.email}>
             <button
@@ -43,16 +46,18 @@ function DemoAccounts({ onPick, busy }: { onPick: (email: string) => void; busy:
                 {a.role.charAt(0)}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-semibold text-content">
-                  {a.role} <span className="font-normal text-content-muted">· {a.note}</span>
-                </span>
-                <span className="block truncate font-mono text-[11.5px] text-content-muted">{a.email}</span>
+                <span className="block text-[14px] font-semibold text-content">{a.role}</span>
+                <span className="block text-xs leading-snug text-content-muted">{a.note}</span>
+                <span className="mt-0.5 block truncate font-mono text-[11.5px] text-content-muted">{a.email}</span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-content-muted transition-transform group-hover:translate-x-0.5 group-hover:text-content" strokeWidth={1.7} />
             </button>
           </li>
         ))}
       </ul>
+      <p className="mt-5 text-xs text-content-muted">
+        Everything here is synthetic and stays in this browser — no SMS, email, payment or bank request is ever sent.
+      </p>
     </div>
   );
 }
@@ -118,7 +123,20 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthShell title="Sign in" subtitle="Your buildings, tenants and collections, in one place.">
+    <AuthShell
+      title="Sign in"
+      subtitle="Your buildings, tenants and collections, in one place."
+      aside={isLocalProvider ? (
+        <DemoAccounts
+          busy={submitting}
+          onPick={(email) => {
+            setValue("email", email);
+            setValue("password", DEMO_PASSWORD);
+            void onSubmit({ email, password: DEMO_PASSWORD });
+          }}
+        />
+      ) : undefined}
+    >
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <div>
           <label htmlFor="email" className={labelCls}>
@@ -176,16 +194,6 @@ export default function LoginPage() {
           Sign in
         </Button>
       </form>
-      {isLocalProvider && (
-        <DemoAccounts
-          busy={submitting}
-          onPick={(email) => {
-            setValue("email", email);
-            setValue("password", DEMO_PASSWORD);
-            void onSubmit({ email, password: DEMO_PASSWORD });
-          }}
-        />
-      )}
     </AuthShell>
   );
 }
