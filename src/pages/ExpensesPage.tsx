@@ -1,0 +1,417 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PlusCircle, Trash2 } from "lucide-react";
+
+import { cloneElement, isValidElement, useId, useState } from "react";
+import { useForm } from "react-hook-form";
+import toast from "react-hot-toast";
+import { z } from "zod";
+
+import {
+  Badge, Button, Card, DatePicker, EmptyState, ErrorState,
+  PageHeader, Skeleton, Table, TBody, TD, TH, THead, TR,
+} from "@/components/ui";
+import { useBuildings } from "@/hooks/useBuildings";
+import {
+  useCreateExpense,
+  useDeleteExpense, useExpenseCategories, useExpenses,
+} from "@/hooks/useExpenses";
+import { useUnits } from "@/hooks/useUnits";
+import { getErrorMessage } from "@/lib/apiError";
+import { cn } from "@/lib/cn";
+import { toDayFirst } from "@/lib/dates";
+import { AccountingSuite } from "@/pages/AccountingPage";
+
+const expenseSchema = z.object({
+  date: z.string().min(1, "Date is required"),
+  building: z.string().optional(),
+  unit: z.string().optional(),
+  category: z.coerce.number().min(1, "Category is required"),
+  amount: z.string()
+    .min(1, "Amount is required")
+    .refine((v) => Number(v) > 0, "Amount must be greater than 0"),
+  description: z.string().min(2, "Description is required"),
+  reference: z.string().optional(),
+  period_month: z.coerce.number().min(1).max(12),
+  period_year: z.coerce.number().min(2000).max(2100),
+  notes: z.string().optional(),
+});
+type ExpenseFormData = z.infer<typeof expenseSchema>;
+
+const inputCls =
+  "w-full rounded-md bg-surface-raised hairline px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-sage-500/40";
+
+function Field({ label, error, children, className, hint }: {
+  label: string; error?: string; children: React.ReactNode; className?: string; hint?: string;
+}) {
+  const id = useId();
+  const control = isValidElement(children)
+    ? cloneElement(children as React.ReactElement<{ id?: string }>, {
+        id: (children as React.ReactElement<{ id?: string }>).props.id ?? id,
+      })
+    : children;
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+        {label}
+      </label>
+      {control}
+      {error ? (
+        <p className="mt-1 text-[11px] text-status-unpaid">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-[11px] text-ink-400">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+const MAIN_TABS = [
+  { key: "expenses",   label: "Expenses Log" },
+  { key: "accounting", label: "Accounting" },
+] as const;
+
+type MainTab = (typeof MAIN_TABS)[number]["key"];
+
+export default function ExpensesPage() {
+  const now = new Date();
+  const [mainTab, setMainTab] = useState<MainTab>("expenses");
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterBuilding, setFilterBuilding] = useState<"" | "none" | string>("");
+  const [filterUnit, setFilterUnit] = useState<"" | "none" | string>("");
+  const [showForm, setShowForm] = useState(false);
+
+  const buildingParam: number | "none" | null =
+    filterBuilding === "" ? null : filterBuilding === "none" ? "none" : Number(filterBuilding);
+  const unitParam: number | "none" | null =
+    filterUnit === "" ? null : filterUnit === "none" ? "none" : Number(filterUnit);
+
+  const { data: expenses, isLoading, isError, refetch } = useExpenses(
+    filterMonth, filterYear, buildingParam, unitParam,
+  );
+  const { data: categories } = useExpenseCategories();
+  const { data: buildings } = useBuildings();
+  // One fetch of the unit roll, filtered client-side for both the building
+  // filter above and the building picked inside the form — they move
+  // independently, so a per-building refetch would fire on every keystroke.
+  const { data: units } = useUnits();
+  const createExpense = useCreateExpense();
+  const deleteExpense = useDeleteExpense();
+
+  const form = useForm<ExpenseFormData>({
+    resolver: zodResolver(expenseSchema),
+    defaultValues: {
+      date: now.toISOString().split("T")[0],
+      period_month: now.getMonth() + 1,
+      period_year: now.getFullYear(),
+    },
+  });
+
+  const buildingField = form.register("building");
+  const formBuilding = form.watch("building");
+  const formUnits = formBuilding
+    ? units?.filter((u) => u.building === Number(formBuilding)) ?? []
+    : [];
+  const filterUnits = filterBuilding && filterBuilding !== "none"
+    ? units?.filter((u) => u.building === Number(filterBuilding)) ?? []
+    : [];
+
+
+  const onSubmitExpense = (values: ExpenseFormData) => {
+    const { building, unit, ...rest } = values;
+    createExpense.mutate(
+      {
+        ...rest,
+        building: building && building !== "" ? Number(building) : null,
+        unit: unit && unit !== "" ? Number(unit) : null,
+        reference: values.reference ?? "",
+        notes: values.notes ?? "",
+      },
+      {
+        onSuccess: () => {
+          toast.success("Expense recorded");
+          form.reset({
+            date: now.toISOString().split("T")[0],
+            period_month: now.getMonth() + 1,
+            period_year: now.getFullYear(),
+          });
+          setShowForm(false);
+        },
+        onError: (e) => toast.error(getErrorMessage(e, "Failed to save expense")),
+      },
+    );
+  };
+
+  const total = expenses?.reduce((sum, e) => sum + parseFloat(e.amount), 0) ?? 0;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Spending"
+        title="Expenses & Accounting"
+        description="Record operating costs and access your full accounting suite."
+        actions={
+          mainTab === "expenses" ? (
+            <Button onClick={() => setShowForm((v) => !v)}>
+              <PlusCircle className="h-4 w-4" />
+              {showForm ? "Cancel" : "Record Expense"}
+            </Button>
+          ) : null
+        }
+      />
+
+      {/* Main tab switch */}
+      <div className="glass -mx-1 flex gap-1 overflow-x-auto rounded-xl p-1">
+        {MAIN_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setMainTab(t.key)}
+            className={cn(
+              "whitespace-nowrap rounded-md px-4 py-2 text-xs font-medium transition-all",
+              mainTab === t.key
+                ? "bg-ink-900 text-canvas shadow-float dark:bg-ink-100 dark:text-canvas"
+                : "text-ink-600 hover:text-ink-900",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {mainTab === "accounting" && <AccountingSuite />}
+
+      {mainTab === "expenses" && (
+      <>
+      {/* Total summary */}
+      <Card variant="glass" padding="md" className="relative overflow-hidden">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-coral-400/25 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ink-500">
+              Total for{" "}
+              {new Date(filterYear, filterMonth - 1).toLocaleString("default", { month: "long" })}{" "}
+              {filterYear}
+            </p>
+            <p className="mt-1 font-display text-4xl font-semibold text-status-unpaid">
+              KES {total.toLocaleString()}
+            </p>
+            <p className="mt-1 text-xs text-ink-500">
+              Across {expenses?.length ?? 0} entr{(expenses?.length ?? 0) === 1 ? "y" : "ies"}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={filterBuilding}
+              onChange={(e) => {
+                setFilterBuilding(e.target.value as "" | "none" | string);
+                // The unit list is scoped to the building — a stale unit id
+                // from the previous building would return nothing.
+                setFilterUnit("");
+              }}
+              aria-label="Filter by building"
+              className="glass rounded-md px-3 py-2 text-sm text-ink-900 focus:outline-none"
+            >
+              <option value="">All buildings</option>
+              <option value="none">Portfolio-wide only</option>
+              {buildings?.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+            {filterBuilding && filterBuilding !== "none" && (
+              <select
+                value={filterUnit}
+                onChange={(e) => setFilterUnit(e.target.value as "" | "none" | string)}
+                aria-label="Filter by unit"
+                className="glass rounded-md px-3 py-2 text-sm text-ink-900 focus:outline-none"
+              >
+                <option value="">All units</option>
+                <option value="none">Building-wide only</option>
+                {filterUnits.map((u) => (
+                  <option key={u.id} value={u.id}>{u.label}</option>
+                ))}
+              </select>
+            )}
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(Number(e.target.value))}
+              className="glass rounded-md px-3 py-2 text-sm text-ink-900 focus:outline-none"
+            >
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {new Date(2000, i).toLocaleString("default", { month: "long" })}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number" min="2000" max="2100" value={filterYear}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v) && v >= 2000) setFilterYear(v);
+              }}
+              className="glass w-24 rounded-md px-3 py-2 text-sm text-ink-900 focus:outline-none"
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Expense form */}
+      {showForm && (
+        <Card variant="glass" padding="md" className="animate-fade-up">
+          <p className="mb-5 font-display text-lg font-semibold text-ink-900">Record expense</p>
+          <form onSubmit={form.handleSubmit(onSubmitExpense)} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DatePicker
+              label="Date *"
+              {...form.register("date")}
+              error={form.formState.errors.date?.message}
+            />
+
+            <Field label="Building">
+              <select
+                {...buildingField}
+                onChange={(e) => {
+                  void buildingField.onChange(e);
+                  // Units belong to one building — drop the old pick.
+                  form.setValue("unit", "");
+                }}
+                className={inputCls}
+              >
+                <option value="">Portfolio-wide (no building)</option>
+                {buildings?.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Unit"
+              error={form.formState.errors.unit?.message}
+              hint={
+                formBuilding
+                  ? "Leave blank for a cost that covers the whole building."
+                  : "Pick a building first to charge this to one unit."
+              }
+            >
+              <select {...form.register("unit")} disabled={!formBuilding} className={inputCls}>
+                <option value="">
+                  {formBuilding ? "Whole building (no unit)" : "—"}
+                </option>
+                {formUnits.map((u) => (
+                  <option key={u.id} value={u.id}>{u.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Category *"
+              error={form.formState.errors.category?.message}
+              hint="Each category posts to a fixed GL code from the Chart of Accounts."
+            >
+              <select {...form.register("category")} disabled={!categories || categories.length === 0} className={inputCls}>
+                <option value="">Select category…</option>
+                {categories?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.account_code ? `${c.account_code} · ${c.name}` : c.name}
+                  </option>
+                ))}
+              </select>
+              {categories && categories.length === 0 && (
+                <p className="mt-1 text-[11px] text-ochre-600">
+                  No categories yet — add one above first.
+                </p>
+              )}
+            </Field>
+            <Field label="Amount (KES) *" error={form.formState.errors.amount?.message}>
+              <input type="number" step="0.01" min="0" {...form.register("amount")} placeholder="0.00" className={inputCls} />
+            </Field>
+            <Field label="Description *" error={form.formState.errors.description?.message} className="sm:col-span-2">
+              <input {...form.register("description")} placeholder="e.g. Fixed leak in Unit A3 bathroom" className={inputCls} />
+            </Field>
+            <Field label="Reference">
+              <input {...form.register("reference")} placeholder="Receipt / invoice number" className={inputCls} />
+            </Field>
+            <Field label="Period">
+              <div className="flex gap-2">
+                <select {...form.register("period_month")} className={inputCls}>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {new Date(2000, i).toLocaleString("default", { month: "short" })}
+                    </option>
+                  ))}
+                </select>
+                <input type="number" {...form.register("period_year")} className={inputCls + " w-24"} />
+              </div>
+            </Field>
+            <Field label="Notes" className="sm:col-span-2">
+              <textarea {...form.register("notes")} rows={2} className={inputCls} />
+            </Field>
+            <div className="flex items-end">
+              <Button type="submit" loading={createExpense.isPending} className="w-full">
+                Save expense
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {/* Expenses table */}
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+        </div>
+      ) : isError ? (
+        <Card variant="glass" padding="none" className="py-4">
+          <ErrorState
+            title="Expenses could not be loaded."
+            description="This period's expenses did not come back. This is usually temporary."
+            onRetry={() => void refetch()}
+          />
+        </Card>
+      ) : !expenses?.length ? (
+        <Card variant="glass" padding="none" className="py-4">
+          <EmptyState icon={<PlusCircle className="h-5 w-5" />} title="No expenses recorded"
+            description="This period has no recorded expenses yet." />
+        </Card>
+      ) : (
+        <div className="hidden md:block">
+          <Table minWidth={900}>
+            <THead>
+              <TR>
+                <TH>Date</TH><TH>Building</TH><TH>Unit</TH><TH>Category</TH>
+                <TH>Description</TH><TH className="text-right">Amount</TH>
+                <TH>Reference</TH><TH></TH>
+              </TR>
+            </THead>
+            <TBody>
+              {expenses.map((e) => (
+                <TR key={e.id}>
+                  <TD className="whitespace-nowrap text-ink-700">{toDayFirst(e.date)}</TD>
+                  <TD className="whitespace-nowrap text-ink-500">
+                    {e.building_name ?? <span className="italic">Portfolio</span>}
+                  </TD>
+                  <TD className="whitespace-nowrap text-ink-500">
+                    {e.unit_label ?? <span className="italic">Building-wide</span>}
+                  </TD>
+                  <TD><Badge tone="peri">{e.category_name}</Badge></TD>
+                  <TD className="max-w-xs truncate">{e.description}</TD>
+                  <TD className="text-right whitespace-nowrap font-semibold tabular-nums text-status-unpaid">
+                    KES {parseFloat(e.amount).toLocaleString()}
+                  </TD>
+                  <TD className="font-mono text-[11px] text-ink-400">{e.reference || "—"}</TD>
+                  <TD>
+                    <button
+                      type="button"
+                      onClick={() => { if (window.confirm("Delete this expense?")) deleteExpense.mutate(e.id); }}
+                      className="rounded-md p-1.5 text-ink-400 hover:bg-status-unpaid/10 hover:text-status-unpaid"
+                      aria-label="Delete expense"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </div>
+      )}
+      </>
+      )}
+    </div>
+  );
+}

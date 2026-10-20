@@ -1,0 +1,401 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Design tokens — "warm, calm, trustworthy"
+   A sun-warmed wash (lilac · peach · honey · sky), white cards for reading,
+   glass for touching, one black hero card, and gold only for "now" and
+   progress. Colors are space-separated RGB triplets so Tailwind can apply
+   <alpha>. The legacy scale names (navy, teal, sage, coral, ochre, ink…)
+   are kept and remapped, so every existing screen adopts the system.
+   ══════════════════════════════════════════════════════════════════════════ */
+@layer base {
+  :root {
+    /* ── Neutrals ─────────────────────────────────────────────────────── */
+    --fg-rgb: 17 17 19;              /* #111113 text, icons, hero, active chip, + */
+    --bar-rgb: 28 28 32;             /* #1c1c20 chart bars, fills on light */
+    --muted-rgb: 107 107 115;        /* #6b6b73 secondary text */
+    --soft-rgb: 154 154 163;         /* #9a9aa3 tertiary text, axis labels */
+    --hero-muted-rgb: 168 168 178;   /* #a8a8b2 secondary text on black */
+    --expected-rgb: 228 228 234;     /* #e4e4ea empty tracks, ghost bars, avatars */
+    --line-rgb: 236 236 240;         /* #ececf0 hairlines */
+
+    --neutral-950: 11 11 13;
+    --neutral-900: var(--fg-rgb);
+    --neutral-800: var(--bar-rgb);
+    --neutral-700: 58 58 64;
+    --neutral-600: 85 85 92;
+    --neutral-500: var(--muted-rgb);
+    --neutral-400: var(--soft-rgb);
+    --neutral-300: 201 201 208;
+    --neutral-200: var(--line-rgb);
+    --neutral-100: 244 243 245;
+    --neutral-50: 250 250 251;
+
+    /* Interaction is ink, not colour: the old navy/teal scales become ink. */
+    --navy-900: 11 11 13;
+    --navy-800: var(--fg-rgb);
+    --navy-700: var(--bar-rgb);
+    --navy-600: 42 42 48;
+    --navy-500: 58 58 66;
+    --teal-900: var(--fg-rgb);
+    --teal-800: var(--fg-rgb);
+    --teal-700: var(--fg-rgb);
+    --teal-600: var(--bar-rgb);
+    --teal-500: var(--soft-rgb);
+
+    /* Gold — the only accent. "Now" and "progress", nothing else. */
+    --gold: 224 160 58;              /* #e0a03a */
+    --gold-soft: 251 241 218;
+    --orange-900: 163 92 0;
+    --orange-800: 163 92 0;
+    --orange-700: var(--gold);
+    --orange-600: var(--gold);
+    --orange-500: var(--gold);
+
+    /* ── Status: always a dark foreground on a pale background ───────── */
+    --success: 24 121 78;            /* #18794e */
+    --success-soft: 221 243 230;     /* #ddf3e6 */
+    --warning: 163 92 0;             /* #a35c00 */
+    --warning-soft: 253 239 211;     /* #fdefd3 */
+    --danger: 194 42 51;             /* #c22a33 */
+    --danger-soft: 253 228 228;      /* #fde4e4 */
+    --info: var(--fg-rgb);
+    --info-soft: var(--neutral-100);
+
+    --notice: 251 241 218;           /* #fbf1da */
+    --notice-edge: 241 223 180;      /* #f1dfb4 */
+
+    /* ── Surfaces & text ──────────────────────────────────────────────── */
+    --app: 239 232 226;              /* #efe8e2 base under the wash */
+    --app-from: 239 232 226;
+    --app-to: 239 232 226;
+    --surface: 255 255 255;          /* cards are white */
+    --surface-sunk: var(--neutral-100);
+    --border: var(--line-rgb);
+    --border-strong: 214 214 220;
+    --hover: 246 245 247;
+    --selected: 251 241 218;
+
+    --text-primary: var(--fg-rgb);
+    --text-secondary: var(--muted-rgb);
+    --text-muted: var(--muted-rgb);
+    --text-invert: 255 255 255;
+    --ring: var(--fg-rgb);
+
+    --hero: var(--fg-rgb);
+    --hero-muted: var(--hero-muted-rgb);
+    --expected: var(--expected-rgb);
+    --bar: var(--bar-rgb);
+
+    /* Sidebar: the original's flush, full-height layout in the design
+       system's colours — glass on the wash, ink text, gold marking "now". */
+    --sidebar-bg: 255 255 255;
+    --sidebar-text: var(--fg-rgb);
+    --sidebar-icon: var(--muted-rgb);
+    --sidebar-muted: var(--muted-rgb);
+    --sidebar-active-bg: 255 255 255;
+    --sidebar-active-text: var(--fg-rgb);
+    --sidebar-border: 255 255 255;
+
+    /* ── Legacy aliases → the new palette ─────────────────────────────── */
+    --bg-canvas: var(--app);
+    --bg-canvas-alt: var(--neutral-100);
+    --surface-raised: var(--surface);
+    --espresso: var(--fg-rgb);
+
+    --ink-900: var(--fg-rgb);
+    --ink-700: var(--neutral-700);
+    --ink-500: var(--muted-rgb);
+    --ink-400: var(--soft-rgb);
+    --ink-300: var(--neutral-300);
+    --ink-200: var(--line-rgb);
+    --ink-100: var(--neutral-100);
+
+    /* sage was the old interactive accent (links, focus, checkboxes, key
+       figures) — in this system interaction and figures are ink. Green lives
+       only inside status pills (Badge tone="paid"/"sage"). */
+    --sage-50: var(--neutral-100); --sage-100: var(--neutral-100);
+    --sage-400: var(--fg-rgb); --sage-500: var(--fg-rgb);
+    --sage-600: var(--fg-rgb); --sage-700: var(--fg-rgb);
+    /* ochre = "attention" */
+    --ochre-50: var(--warning-soft); --ochre-400: var(--gold);
+    --ochre-500: var(--warning); --ochre-600: var(--warning);
+    /* coral = "owed / overdue" */
+    --coral-50: var(--danger-soft); --coral-400: 214 90 96;
+    --coral-500: var(--danger); --coral-600: var(--danger);
+    /* peri = quiet neutral */
+    --peri-50: var(--neutral-100); --peri-400: var(--soft-rgb);
+    --peri-500: var(--muted-rgb); --peri-600: var(--neutral-600);
+
+    --status-paid: var(--success);
+    --status-partial: var(--warning);
+    --status-unpaid: var(--danger);
+    --status-vacant: var(--soft-rgb);
+
+    /* ── Elevation: white cards are flat; depth means "special or touchable" */
+    --shadow-xs: none;
+    --shadow-sm: none;
+    --shadow-md: 0 10px 28px rgba(20, 24, 35, 0.14);
+    --shadow-lg: 0 18px 44px rgba(20, 24, 35, 0.18);
+    --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    --shadow-micro: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --shadow-hero: 0 12px 28px rgba(17, 17, 19, 0.25);
+    --shadow-fab: 0 6px 16px rgba(0, 0, 0, 0.25);
+
+    --shadow-neu: none;
+    --shadow-neu-sm: none;
+    --shadow-neu-inset: none;
+    --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 10px 28px rgba(20, 24, 35, 0.14);
+    --shadow-float: var(--shadow-md);
+    --shadow-ring: 0 0 0 0 transparent;
+
+    /* ── Glass material ───────────────────────────────────────────────── */
+    --glass: linear-gradient(140deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.3));
+    --glass-strong-bg: linear-gradient(140deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.5));
+    --glass-edge: rgba(255, 255, 255, 0.75);
+    --glass-blur: blur(22px) saturate(170%);
+
+    /* ── Background wash ──────────────────────────────────────────────── */
+    --wallbg:
+      radial-gradient(circle at 8% 14%, #c3bccb 0, transparent 46%),
+      radial-gradient(circle at 96% 6%, #ebc0a5 0, transparent 44%),
+      radial-gradient(circle at 60% 104%, #efc978 0, transparent 46%),
+      radial-gradient(circle at 4% 96%, #b4cde6 0, transparent 40%),
+      #efe8e2;
+
+    /* ── Radii: tap targets are pills, reading surfaces are rounded rects */
+    --r-sm: 10px;
+    --r-md: 12px;
+    --r-lg: 16px;
+    --r-xl: 18px;
+    --r-2xl: 20px;
+    --r-3xl: 22px;
+  }
+
+  /* ── Dark: the same system after dusk — the wash dims, cards go graphite. */
+  .dark {
+    --fg-rgb: 242 242 245;
+    --muted-rgb: 160 160 170;
+    --soft-rgb: 120 120 130;
+    --line-rgb: 44 44 52;
+    --expected-rgb: 52 52 60;
+    --bar-rgb: 230 230 236;
+
+    --neutral-100: 34 34 40;
+    --neutral-300: 70 70 80;
+    --neutral-700: 200 200 208;
+
+    --navy-800: 242 242 245;
+    --teal-700: 242 242 245;
+
+    --app: 18 18 22;
+    --surface: 28 28 33;
+    --surface-sunk: 34 34 40;
+    --border: var(--line-rgb);
+    --border-strong: 64 64 74;
+    --hover: 38 38 45;
+    --selected: 60 46 20;
+
+    --success: 98 200 148;  --success-soft: 20 52 38;
+    --warning: 236 176 92;  --warning-soft: 60 44 16;
+    --danger: 240 120 126;  --danger-soft: 64 24 28;
+    --notice: 50 40 20;     --notice-edge: 80 64 30;
+
+    --hero: 8 8 10;
+
+
+    --glass: linear-gradient(140deg, rgba(48, 48, 56, 0.62), rgba(36, 36, 42, 0.36));
+    --glass-strong-bg: linear-gradient(140deg, rgba(44, 44, 52, 0.85), rgba(32, 32, 38, 0.7));
+    --glass-edge: rgba(255, 255, 255, 0.08);
+    --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 28px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.5);
+
+    --wallbg:
+      radial-gradient(circle at 8% 14%, rgba(195, 188, 203, 0.16) 0, transparent 46%),
+      radial-gradient(circle at 96% 6%, rgba(235, 192, 165, 0.12) 0, transparent 44%),
+      radial-gradient(circle at 60% 104%, rgba(239, 201, 120, 0.12) 0, transparent 46%),
+      radial-gradient(circle at 4% 96%, rgba(180, 205, 230, 0.1) 0, transparent 40%),
+      #121216;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--wallbg);
+    background-attachment: fixed;
+    color: rgb(var(--text-primary));
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  /* The wash gets its saturation lift without tinting the content. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--wallbg);
+    filter: saturate(1.2);
+    pointer-events: none;
+  }
+
+  /* Figures line up in columns everywhere. */
+  .num,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(var(--soft-rgb), 0.35);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(var(--muted-rgb), 0.5);
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-track { background: transparent; }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  .font-display {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Materials & components
+   .glass       — things you touch (controls, filters, tab bar, search)
+   .card / .neu — things you read (white, hairline, flat)
+   .hero-card   — the one thing that matters most (black)
+   ══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  .glass,
+  .glass-strong {
+    background: var(--glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--shadow-glass);
+    border-radius: 9999px;
+  }
+  .glass-strong {
+    background: var(--glass-strong-bg);
+  }
+  /* A glass panel (rather than a pill) — used for the sidebar and sheets. */
+  .glass-panel {
+    background: var(--glass-strong-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--shadow-glass);
+  }
+
+  .card,
+  .neu {
+    background: rgb(var(--surface));
+    border: 1px solid rgb(var(--border));
+    border-radius: var(--r-2xl);
+  }
+  .neu-sm {
+    background: rgb(var(--surface));
+    border: 1px solid rgb(var(--border));
+    border-radius: var(--r-xl);
+  }
+  .neu-inset {
+    background: rgb(var(--surface-sunk));
+    border-radius: var(--r-md);
+  }
+
+  .hero-card {
+    background: rgb(var(--hero));
+    color: #fff;
+    border-radius: var(--r-3xl);
+    box-shadow: var(--shadow-hero);
+  }
+
+  /* Mono uppercase eyebrow: "COLLECTED · OCTOBER", "TODAY · WED 21 OCT". */
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--muted-rgb));
+  }
+
+  /* KES prefix in front of a figure: small, muted, untracked. */
+  .kes {
+    font-size: 0.45em;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: rgb(var(--muted-rgb));
+    margin-right: 0.3em;
+    vertical-align: 0.15em;
+  }
+  .hero-card .kes { color: rgb(var(--hero-muted)); }
+
+  /* Flush, full-height panel with a single right divider (as the original),
+     made of the system's glass so the wash shows through. */
+  .sidebar-shell {
+    background: var(--glass-strong-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    color: rgb(var(--sidebar-text));
+    border-right: 1px solid var(--glass-edge);
+    box-shadow: inset -1px 0 0 rgba(var(--line-rgb), 0.6);
+  }
+  .sidebar-nav {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sidebar-nav::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+  .hairline {
+    border: 1px solid rgb(var(--border));
+  }
+
+  /* Status pill: 11px/600, dark text on a pale tint. */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold;
+    background: rgb(var(--surface-sunk));
+    color: rgb(var(--muted-rgb));
+  }
+
+  .grain::before { content: none; }
+}
+
+/* Only the mono eyebrows are uppercase. Every older uppercase, tracked label
+   ("MONTHLY RENT", "STATUS") is therefore rendered as one. */
+@layer utilities {
+  [class~="uppercase"][class*="tracking-"] {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+}

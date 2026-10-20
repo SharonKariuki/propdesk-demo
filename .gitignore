@@ -1,0 +1,18 @@
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Local env and build output
+.env
+.env.local
+.env.*.local
+node_modules/
+dist/
+dist-e2e-*/
+*.tsbuildinfo
+
+# Vercel
+.vercel
+test-results/

@@ -1,0 +1,111 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { api } from "@/lib/api";
+
+export interface ExpenseCategory {
+  id: number;
+  name: string;
+  description: string;
+  /** GL code this category is locked to (Chart of Accounts). */
+  account_code: string | null;
+  account_name: string | null;
+  created_at: string;
+}
+
+export interface Expense {
+  id: number;
+  date: string;
+  building: number | null;
+  building_name: string | null;
+  /** Unit this cost is pinned to; null means it covers the whole building. */
+  unit: number | null;
+  unit_label: string | null;
+  category: number;
+  category_name: string;
+  amount: string;
+  description: string;
+  reference: string;
+  period_month: number;
+  period_year: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useExpenseCategories() {
+  return useQuery<ExpenseCategory[]>({
+    queryKey: ["expense-categories"],
+    queryFn: async () => {
+      const { data } = await api.get("/expenses/categories/");
+      return data;
+    },
+  });
+}
+
+// NOTE: expense categories are COA-locked and seeded by `manage.py seed_coa`.
+// They are deliberately not creatable from the app — an ad-hoc category could
+// carry no GL code, and expenses booked under it were silently dropped by the
+// ledger. The API returns 405 for writes.
+
+export function useExpenses(
+  month?: number,
+  year?: number,
+  building?: number | "none" | null,
+  /** A unit id, or "none" for costs booked to the building as a whole. */
+  unit?: number | "none" | null,
+) {
+  return useQuery<Expense[]>({
+    queryKey: ["expenses", month, year, building ?? null, unit ?? null],
+    queryFn: async () => {
+      const params: Record<string, string | number> = {};
+      if (month) params.month = month;
+      if (year) params.year = year;
+      if (building === "none") params.building = "none";
+      else if (typeof building === "number") params.building = building;
+      if (unit === "none") params.unit = "none";
+      else if (typeof unit === "number") params.unit = unit;
+      const { data } = await api.get("/expenses/", { params });
+      return data;
+    },
+  });
+}
+
+export function useCreateExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      date: string;
+      building: number | null;
+      unit: number | null;
+      category: number;
+      amount: string;
+      description: string;
+      reference?: string;
+      period_month: number;
+      period_year: number;
+      notes?: string;
+    }) => {
+      const { data } = await api.post("/expenses/", payload);
+      return data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["expenses"] });
+      void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      void qc.invalidateQueries({ queryKey: ["reports"] });
+    },
+  });
+}
+
+export function useDeleteExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/expenses/${id}/`);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["expenses"] });
+      void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      void qc.invalidateQueries({ queryKey: ["reports"] });
+    },
+  });
+}

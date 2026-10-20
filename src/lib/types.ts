@@ -1,0 +1,275 @@
+/**
+ * Shared TypeScript types mirroring backend API shapes.
+ */
+
+export type UnitStatus =
+  | "vacant"
+  | "occupied_paid"
+  | "occupied_partial"
+  | "occupied_unpaid"
+  | "arrears";
+
+export type UnitType =
+  | "single"
+  | "double"
+  | "bedsitter"
+  | "1br"
+  | "2br"
+  | "3br"
+  | "shop";
+
+/** Tax-domain classification — drives VAT in the payment system. */
+export type UnitClassification = "RESIDENTIAL" | "BUSINESS";
+
+export interface Unit {
+  id: number;
+  building: number;
+  building_name: string;
+  label: string;
+  floor: number;
+  unit_type: UnitType;
+  classification: UnitClassification;
+  classification_display: string;
+  monthly_rent: string;
+  status: UnitStatus;
+  status_display: string;
+  notes: string;
+  /** Active tenant occupying this unit, or null when vacant. */
+  current_tenant_id: number | null;
+  current_tenant_name: string | null;
+  /** Head unit of the combined commercial space this unit is part of, if any. */
+  combined_into: number | null;
+  combined_into_label: string | null;
+  /** On a head unit: the other units let with it. Empty otherwise. */
+  combined_units: SpaceUnit[];
+  /** "BP05 + BP06" for a combined space, else the plain label. */
+  space_label: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One unit within a combined commercial space. */
+export interface SpaceUnit {
+  id: number;
+  label: string;
+  monthly_rent: string;
+}
+
+export type PropertyType = "rental" | "farm" | "expense_only";
+
+export interface Building {
+  id: number;
+  name: string;
+  address: string;
+  total_floors: number;
+  property_type?: PropertyType;
+  property_type_display?: string;
+  /** False for expenses-only properties (e.g. Head Office - Westlands) — no income entry. */
+  allows_income?: boolean;
+  notes: string;
+  unit_count: number;
+  occupied_count: number;
+  /** A cover photo was uploaded; without one the card shows a placeholder. */
+  has_photo?: boolean;
+  /** Changes whenever the photo does, so a cached copy is refreshed. */
+  photo_version?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BuildingDetail extends Building {
+  units: Unit[];
+}
+
+export interface UnitStatusSummary {
+  total: number;
+  vacant: number;
+  occupied_paid: number;
+  occupied_partial: number;
+  occupied_unpaid: number;
+  arrears: number;
+}
+
+// --- Tenants ---
+
+export type TenantStatus = "active" | "moved_out" | "archived" | "notice_given";
+
+export type KycStatus = "not_started" | "pending" | "verified" | "rejected";
+
+export type DocumentType =
+  | "id_front"
+  | "id_back"
+  | "passport"
+  | "kra_pin_certificate"
+  | "lease"
+  | "other";
+
+export interface TenantDocument {
+  id: number;
+  tenant: number;
+  doc_type: DocumentType;
+  doc_type_display: string;
+  file: string;
+  original_name: string;
+  uploaded_at: string;
+}
+
+export interface TenantListItem {
+  id: number;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+  unit: number;
+  unit_label: string;
+  building_name: string;
+  building_id: number;
+  monthly_rent: string;
+  deposit_paid: string;
+  status: TenantStatus;
+  status_display: string;
+  kyc_status: KycStatus;
+  kyc_status_display: string;
+  balance: string;
+  payment_status: "paid" | "in_arrears";
+  move_in_date: string;
+  move_out_date: string | null;
+  due_day: number;
+  /** False for an occupancy that is not charged rent — a caretaker housed as
+   *  part of their job. Excluded from the monthly rent run, both reminder jobs
+   *  and the monthly statements. True for every ordinary letting. */
+  is_billable: boolean;
+}
+
+/** How far ahead the rent run raises a letting. Quarterly raises the three
+ *  months of a calendar quarter together, before it starts (e.g. a commercial letting). */
+export type BillingFrequency = "monthly" | "quarterly";
+
+export interface TenantDetail extends TenantListItem {
+  billing_frequency?: BillingFrequency;
+  id_number: string;
+  kra_pin: string;
+  email: string;
+  /** RESIDENTIAL | BUSINESS — commercial lettings are VAT-rated and take a
+   *  three-month deposit against the residential one month. */
+  unit_classification: string;
+  /** Units this tenancy occupies, head first — more than one for a combined
+   *  commercial space. Older API responses omit these. */
+  space_units?: SpaceUnit[];
+  space_label?: string;
+  /** Name printed on the rent statement, e.g. a guarantor or company. */
+  care_of: string;
+  emergency_contact: string;
+  emergency_phone: string;
+  /** Deposit actually received. Never adjusted to match the rule below. */
+  deposit_paid: string;
+  /** Months of rent the deposit should be: 1, or 3 for a commercial letting.
+   *  Meaningless when `deposit_is_agreed` — an agreed figure is not months. */
+  deposit_months: number;
+  /** What the deposit should be: the agreed figure if one was set, else the rule. */
+  expected_deposit: number;
+  /** How far `deposit_paid` falls short of `expected_deposit`; 0 if met. */
+  deposit_shortfall: number;
+  /** A deposit agreed with this tenant in place of the rule; null = use the rule. */
+  agreed_deposit: string | null;
+  /** True when `expected_deposit` came from `agreed_deposit` rather than the rule. */
+  deposit_is_agreed: boolean;
+  deposit_refund_percentage: number;
+  deposit_refund_amount: string;
+  due_day: number;
+  notice_date: string | null;
+  intended_move_out_date: string | null;
+  move_out_notes: string;
+  notes: string;
+  /** Payment analytics — serialized as numbers (float) by the backend. */
+  total_paid: number;
+  total_arrears: number;
+  // KYC
+  kyc_complete: boolean;
+  kyc_missing_items: string[];
+  kyc_verified_at: string | null;
+  kyc_verified_by: number | null;
+  kyc_verified_by_name: string | null;
+  kyc_notes: string;
+  /** Every tenancy this person has held (matched on ID number), oldest first,
+   *  this one included — a returning tenant has one row per letting. */
+  tenancies?: {
+    id: number;
+    unit_label: string;
+    building_name: string;
+    move_in_date: string;
+    move_out_date: string | null;
+    status: TenantStatus;
+    status_display: string;
+  }[];
+  documents: TenantDocument[];
+  created_at: string;
+  updated_at: string;
+}
+
+// --- Transactions & Receipts ---
+
+export type PaymentMode = "MPESA" | "BANK" | "CASH" | "CHEQUE";
+
+export interface Transaction {
+  id: number;
+  transaction_id: string;
+  tenant: number;
+  tenant_name: string;
+  unit_label: string;
+  building_name: string;
+  unit_classification: UnitClassification;
+  unit_classification_display: string;
+  base_amount: string;
+  tax_amount: string;
+  total_amount: string;
+  payment_mode: PaymentMode;
+  payment_mode_display: string;
+  reference_code: string;
+  created_at: string;
+}
+
+/**
+ * ReceiptData mirrors backend receipt_service.ReceiptData.
+ * All values are pre-computed and stored — never recalculated on the frontend.
+ *
+ * Rendering rules:
+ *  show_tax_line  === true  → render Base Amount + VAT (16%) + Total rows
+ *  show_total_only === true → render only Total Amount row (no tax line)
+ */
+export interface ReceiptData {
+  transaction_id: string;
+  reference_code: string;
+  payment_mode: PaymentMode;
+
+  tenant_name: string;
+  unit_label: string;
+  building_name: string;
+  period_month: number;
+  period_year: number;
+  payment_date: string | null;
+
+  unit_classification: UnitClassification;
+  base_amount: string;
+  tax_amount: string;
+  total_amount: string;
+
+  // Conditional rendering flags (set by backend, consumed directly by component)
+  show_tax_line: boolean;
+  show_total_only: boolean;
+
+  // Optional
+  outstanding_balance: string | null;
+}
+
+// --- Auth ---
+
+export interface StoredUser {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  [key: string]: unknown;
+}

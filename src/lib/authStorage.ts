@@ -1,0 +1,65 @@
+/**
+ * Token storage layer.
+ *
+ * Tokens live in localStorage for v1 (single-owner dashboard, low XSS surface
+ * because we control all rendered content). If/when we add tenant-facing
+ * surfaces we should move refresh tokens to httpOnly cookies.
+ */
+const ACCESS_KEY = "wk_access";
+const REFRESH_KEY = "wk_refresh";
+const USER_KEY = "wk_user";
+
+export interface StoredUser {
+  id: number;
+  email: string;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  role?: "owner" | "accountant" | "caretaker" | "viewer";
+  role_display?: string;
+  /** Permissions granted by the role (see lib/permissions.ts). */
+  permissions?: string[];
+  /** May record receipts. Owner and accountant. */
+  can_record_money?: boolean;
+  /** May waive arrears or void a payment. Owner only. */
+  can_forgive_money?: boolean;
+}
+
+export const authStorage = {
+  getAccess(): string | null {
+    return localStorage.getItem(ACCESS_KEY);
+  },
+  getRefresh(): string | null {
+    return localStorage.getItem(REFRESH_KEY);
+  },
+  getUser(): StoredUser | null {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as StoredUser;
+    } catch {
+      // Corrupt/partial value — drop it rather than crash the app on load.
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+  },
+  setSession(access: string, refresh: string, user: StoredUser) {
+    localStorage.setItem(ACCESS_KEY, access);
+    localStorage.setItem(REFRESH_KEY, refresh);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  },
+  /**
+   * Store the result of a token refresh. The API rotates refresh tokens and
+   * blacklists the one it was given, so a returned refresh token MUST replace
+   * the stored one — keeping the old one logs the user out on the next refresh.
+   */
+  setTokens(access: string, refresh?: string) {
+    localStorage.setItem(ACCESS_KEY, access);
+    if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
+  },
+  clear() {
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(USER_KEY);
+  },
+};

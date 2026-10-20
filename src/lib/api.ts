@@ -1,0 +1,120 @@
+/**
+ * Axios instance with JWT auth + automatic refresh on 401.
+ *
+ * Refresh strategy:
+ * - On 401, try POST /auth/refresh/ once with the stored refresh token.
+ * - If refresh succeeds, update the access token and retry the original request.
+ * - If refresh fails, clear the session and redirect to /login.
+ * - Concurrent 401s share a single in-flight refresh promise so we only
+ *   ever issue one refresh call per expiry window.
+ */
+import axios, {
+  AxiosError,
+  type AxiosAdapter,
+  AxiosInstance,
+  InternalAxiosRequestConfig,
+} from "axios";
+
+import { dataConfig, isLocalProvider } from "@/data/config";
+
+import { authStorage } from "./authStorage";
+
+/*
+ * Transport selection (see src/data/config.ts). With the local provider every
+ * request is answered in the browser by src/data/local; with the http provider
+ * it goes to VITE_API_BASE_URL. Nothing below this block depends on which.
+ */
+const configuredBaseURL = dataConfig.apiBaseUrl;
+
+if (!isLocalProvider && !configuredBaseURL && import.meta.env.PROD) {
+  // A production build with no API URL would silently call localhost and fail
+  // for every user. Make the misconfiguration impossible to miss.
+  throw new Error(
+    "VITE_API_BASE_URL is not set. Production builds must define the API base URL " +
+      "(set it in the deployment environment before building).",
+  );
+}
+
+const baseURL = isLocalProvider ? "/api" : configuredBaseURL || "http://localhost:8000/api";
+// Loaded on first use, so a build against the real API never ships the demo backend.
+// Written against import.meta.env directly so the build folds it to a constant.
+const adapter: AxiosAdapter | undefined = import.meta.env.VITE_DATA_PROVIDER !== "http"
+  ? (config) => import("@/data/local/adapter").then((m) => m.localAdapter(config))
+  : undefined;
+
+export const api: AxiosInstance = axios.create({
+  baseURL,
+  withCredentials: false,
+  timeout: 10_000,
+  adapter,
+});
+
+// ----- Request interceptor: attach access token --------------------------
+api.interceptors.request.use((config) => {
+  const access = authStorage.getAccess();
+  if (access && config.headers) {
+    config.headers.Authorization = `Bearer ${access}`;
+  }
+  return config;
+});
+
+// ----- Response interceptor: refresh on 401 ------------------------------
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refresh = authStorage.getRefresh();
+  if (!refresh) return null;
+
+  try {
+    const { data } = await axios.post<{ access: string; refresh?: string }>(
+      `${baseURL}/auth/refresh/`,
+      { refresh },
+      { timeout: 10_000, adapter }
+    );
+    authStorage.setTokens(data.access, data.refresh);
+    return data.access;
+  } catch {
+    authStorage.clear();
+    return null;
+  }
+}
+
+interface RetriableConfig extends InternalAxiosRequestConfig {
+  _retried?: boolean;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const original = error.config as RetriableConfig | undefined;
+    const isAuthEndpoint = original?.url?.includes("/auth/");
+
+    if (
+      error.response?.status === 401 &&
+      original &&
+      !original._retried &&
+      !isAuthEndpoint
+    ) {
+      original._retried = true;
+
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = null;
+        });
+      }
+      const newAccess = await refreshPromise;
+
+      if (newAccess) {
+        original.headers.Authorization = `Bearer ${newAccess}`;
+        return api.request(original);
+      }
+
+      // Refresh failed — bounce to login.
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
