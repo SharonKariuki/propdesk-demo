@@ -4,7 +4,6 @@ import { expect, test, type Page } from "@playwright/test";
 async function signInAs(page: Page, email: string) {
   await page.goto("/login");
   await page.getByRole("button", { name: new RegExp(email.replace(".", "\\.")) }).click();
-  await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/dashboard");
 }
 

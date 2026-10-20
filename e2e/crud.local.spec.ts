@@ -13,7 +13,6 @@ test.describe.configure({ mode: "serial" });
 async function signIn(page: Page) {
   await page.goto("/login");
   await page.getByRole("button", { name: /owner@mawingu\.test/ }).click();
-  await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/dashboard");
 }
 

@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
@@ -12,28 +12,47 @@ import { Button } from "@/components/ui";
 import { isLocalProvider } from "@/data/config";
 import { useAuth } from "@/hooks/useAuth";
 
+const DEMO_PASSWORD = "demo1234";
+
 const DEMO_ACCOUNTS = [
-  { email: "owner@mawingu.test", role: "Owner / Admin — full access" },
-  { email: "accountant@mawingu.test", role: "Accountant — records money, cannot reverse it" },
-  { email: "caretaker@mawingu.test", role: "Caretaker — meters, repairs, tenant contacts" },
+  { email: "owner@mawingu.test", role: "Owner / Admin", note: "Everything" },
+  { email: "accountant@mawingu.test", role: "Accountant", note: "Records money" },
+  { email: "caretaker@mawingu.test", role: "Caretaker", note: "On-site work" },
 ];
 
-/** Demo mode only: the synthetic accounts, one click to fill the form. */
-function DemoAccounts({ onPick }: { onPick: (email: string) => void }) {
+/** Demo mode only: one tap signs in as a synthetic account. */
+function DemoAccounts({ onPick, busy }: { onPick: (email: string) => void; busy: boolean }) {
   return (
-    <div className="mt-6 rounded-md bg-ink-50 p-3 text-xs text-ink-600 dark:bg-ink-800 dark:text-ink-300">
-      <p className="font-medium text-ink-900 dark:text-white">Demo accounts · password <span className="font-mono">demo1234</span></p>
-      <ul className="mt-2 space-y-1">
+    <div className="mt-6 border-t border-border pt-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[13px] font-semibold text-content">Try the demo</p>
+        <p className="text-xs text-content-muted">
+          password <span className="font-mono text-content">{DEMO_PASSWORD}</span>
+        </p>
+      </div>
+      <ul className="mt-3 grid gap-2">
         {DEMO_ACCOUNTS.map((a) => (
           <li key={a.email}>
-            <button type="button" onClick={() => onPick(a.email)} className="text-left hover:underline">
-              <span className="font-mono text-sage-700 dark:text-sage-400">{a.email}</span>
-              <span className="text-ink-500"> · {a.role}</span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onPick(a.email)}
+              className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:border-border-strong hover:bg-hover/60 disabled:opacity-60"
+            >
+              <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-expected text-[11.5px] font-semibold text-content">
+                {a.role.charAt(0)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-semibold text-content">
+                  {a.role} <span className="font-normal text-content-muted">· {a.note}</span>
+                </span>
+                <span className="block truncate font-mono text-[11.5px] text-content-muted">{a.email}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-content-muted transition-transform group-hover:translate-x-0.5 group-hover:text-content" strokeWidth={1.7} />
             </button>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-ink-500">Synthetic data, stored only in this browser. No SMS, email, payment or bank request ever leaves it.</p>
     </div>
   );
 }
@@ -50,7 +69,9 @@ interface LocationState {
 }
 
 const inputCls =
-  "w-full rounded-md bg-surface-raised hairline py-2.5 pl-10 pr-10 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-sage-500/40";
+  "h-[46px] w-full rounded-[14px] border border-border bg-surface pl-11 pr-11 text-[14px] text-content placeholder:text-content-soft transition-shadow focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-ring/15";
+
+const labelCls = "mb-1.5 block text-xs font-medium text-content-muted";
 
 export default function LoginPage() {
   const { user, login } = useAuth();
@@ -97,14 +118,14 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthShell title="Sign in to your portfolio" subtitle="Manage your buildings, tenants, and collections.">
+    <AuthShell title="Sign in" subtitle="Your buildings, tenants and collections, in one place.">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <div>
-          <label htmlFor="email" className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+          <label htmlFor="email" className={labelCls}>
             Email
           </label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+            <Mail className="pointer-events-none absolute left-4 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-content-muted" strokeWidth={1.7} />
             <input
               id="email"
               type="email"
@@ -115,20 +136,20 @@ export default function LoginPage() {
               placeholder="you@clinic.com"
             />
           </div>
-          {errors.email && <p className="mt-1 text-[11px] text-status-unpaid">{errors.email.message}</p>}
+          {errors.email && <p className="mt-1.5 text-xs text-danger">{errors.email.message}</p>}
         </div>
 
         <div>
-          <div className="mb-1 flex items-center justify-between">
-            <label htmlFor="password" className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="password" className="text-xs font-medium text-content-muted">
               Password
             </label>
-            <Link to="/reset-password" className="text-[11px] text-sage-600 hover:text-sage-700 dark:text-sage-400">
-              Forgot?
+            <Link to="/reset-password" className="text-xs font-medium text-content hover:underline">
+              Forgot password?
             </Link>
           </div>
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+            <Lock className="pointer-events-none absolute left-4 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-content-muted" strokeWidth={1.7} />
             <input
               id="password"
               type={showPassword ? "text" : "password"}
@@ -140,22 +161,31 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"
+              className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-content-muted hover:bg-hover hover:text-content"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPassword ? <EyeOff className="h-[17px] w-[17px]" strokeWidth={1.7} /> : <Eye className="h-[17px] w-[17px]" strokeWidth={1.7} />}
             </button>
           </div>
           {errors.password && (
-            <p className="mt-1 text-[11px] text-status-unpaid">{errors.password.message}</p>
+            <p className="mt-1.5 text-xs text-danger">{errors.password.message}</p>
           )}
         </div>
 
-        <Button type="submit" size="lg" loading={submitting} className="w-full">
+        <Button type="submit" size="lg" loading={submitting} className="h-12 w-full">
           Sign in
         </Button>
       </form>
-      {isLocalProvider && <DemoAccounts onPick={(email) => { setValue("email", email); setValue("password", "demo1234"); }} />}
+      {isLocalProvider && (
+        <DemoAccounts
+          busy={submitting}
+          onPick={(email) => {
+            setValue("email", email);
+            setValue("password", DEMO_PASSWORD);
+            void onSubmit({ email, password: DEMO_PASSWORD });
+          }}
+        />
+      )}
     </AuthShell>
   );
 }
