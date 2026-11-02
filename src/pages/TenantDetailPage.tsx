@@ -18,8 +18,12 @@ import {
   Badge, Button, Card, DatePicker, ErrorState, Skeleton,
   Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
+import { MoreMenu } from "@/components/ui/MoreMenu";
 import { CreditsPanel } from "@/features/credits/CreditsPanel";
 import { VoidPaymentModal } from "@/features/payments/VoidPaymentModal";
+import { DepositCard } from "@/features/deposits/DepositCard";
+import { SettlementForm } from "@/features/deposits/SettlementForm";
+import { LeaseCard } from "@/features/tenants/LeaseCard";
 import { MoveInAgainForm } from "@/features/tenants/MoveInAgainForm";
 import { SpacePanel } from "@/features/tenants/SpacePanel";
 import { Field, KycPanel, RemindModal, inputCls } from "@/features/tenants/shared";
@@ -27,7 +31,7 @@ import { useCreditPosition } from "@/hooks/useCredits";
 import type { Payment } from "@/hooks/usePayments";
 import { useCan } from "@/hooks/usePermission";
 import {
-  useEmailStatement, usePaymentHistory, useMoveOutNotice, useMoveOutTenant, useTenant,
+  useEmailStatement, usePaymentHistory, useMoveOutNotice, useTenant,
   useUpdateTenant,
 } from "@/hooks/useTenants";
 import { getErrorMessage } from "@/lib/apiError";
@@ -85,14 +89,6 @@ const noticeSchema = z.object({
 });
 type NoticeFormValues = z.infer<typeof noticeSchema>;
 
-const moveOutSchema = z.object({
-  move_out_date: z.string().min(1, "Required"),
-  deposit_refund_percentage: z.coerce
-    .number({ invalid_type_error: "Enter a number between 0 and 100" })
-    .min(0, "Cannot be below 0").max(100, "Cannot exceed 100"),
-  notes: z.string().optional(),
-});
-type MoveOutFormValues = z.infer<typeof moveOutSchema>;
 
 type Mode = "view" | "edit" | "notice" | "moveout" | "movein";
 
@@ -182,7 +178,6 @@ export default function TenantDetailPage() {
     : depositMonths === 1 ? "1 month's rent" : `${depositMonths} months' rent`;
   const updateTenant = useUpdateTenant(id ?? "");
   const moveOutNotice = useMoveOutNotice(id ?? "");
-  const moveOut = useMoveOutTenant(id ?? "");
 
   const [mode, setMode] = useState<Mode>("view");
   const [reminding, setReminding] = useState(false);
@@ -206,10 +201,6 @@ export default function TenantDetailPage() {
   const noticeForm = useForm<NoticeFormValues>({
     resolver: zodResolver(noticeSchema),
     defaultValues: { notice_date: todayIso(), intended_move_out_date: "", notes: "" },
-  });
-  const moveOutForm = useForm<MoveOutFormValues>({
-    resolver: zodResolver(moveOutSchema),
-    defaultValues: { move_out_date: todayIso(), deposit_refund_percentage: 100, notes: "" },
   });
 
   useEffect(() => {
@@ -278,6 +269,7 @@ export default function TenantDetailPage() {
 
   const isActive = tenant.status === "active" || tenant.status === "notice_given";
   const inArrears = tenant.payment_status === "in_arrears";
+  const owes = Math.max(0, Math.round((tenant.current_balance ?? 0) * 100) / 100);
   const tenancies = tenant.tenancies ?? [];
   // Only a tenancy that has ended can be followed by another, and only while
   // the person does not already hold a current one elsewhere.
@@ -302,42 +294,45 @@ export default function TenantDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           {isActive && mode === "view" && (
             <>
-              {inArrears && can("notifications.send") && (
-                <Button variant="outline" onClick={() => setReminding(true)}>
-                  <BellRing className="h-4 w-4" /> Remind
+              {can("payments.record") && (
+                <Button onClick={() => navigate(`/payments?new=1&tenant=${tenant.id}${owes > 0 ? `&amount=${owes}` : ""}`)}>
+                  <Plus className="h-4 w-4" /> Record payment
                 </Button>
               )}
               {canManage && <Button variant="outline" onClick={() => setMode("edit")}><Pencil className="h-4 w-4" /> Edit</Button>}
-              {canStatements && (<>
-              <Button variant="outline" onClick={handleStatement} loading={downloading}>
-                <Download className="h-4 w-4" /> Statement PDF
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleEmailStatement}
-                loading={emailStatement.isPending}
-                disabled={!tenant.email}
-                title={tenant.email
-                  ? `Email the statement to ${tenant.email}`
-                  : "No email address on file — add one under Edit"}
-              >
-                <Mail className="h-4 w-4" /> Email Statement
-              </Button>
-              </>)}
-              {canAddCharge && (
-                <Button variant="outline" onClick={() => navigate(`/tenants/${id}/charges/new`)}>
-                  <Plus className="h-4 w-4" /> Add Charge
-                </Button>
-              )}
-              {canManageCredit && (
-                <Button variant="outline" onClick={() => navigate(`/tenants/${id}/credits/new`)}>
-                  <Plus className="h-4 w-4" /> Add Credit
-                </Button>
-              )}
-              {canManage && (<>
-              <Button variant="outline" onClick={() => setMode("notice")}><AlertTriangle className="h-4 w-4" /> Notice</Button>
-              <Button variant="danger" onClick={() => setMode("moveout")}><LogOut className="h-4 w-4" /> Move Out</Button>
-              </>)}
+              <MoreMenu
+                groups={[
+                  {
+                    title: "Money",
+                    items: [
+                      ...(inArrears && can("notifications.send") ? [{ label: "Send a reminder", icon: BellRing, onSelect: () => setReminding(true) }] : []),
+                      ...(canAddCharge ? [{ label: "Add a charge", icon: Plus, onSelect: () => navigate(`/tenants/${id}/charges/new`) }] : []),
+                      ...(canManageCredit ? [{ label: "Add a credit", icon: Plus, onSelect: () => navigate(`/tenants/${id}/credits/new`) }] : []),
+                    ],
+                  },
+                  {
+                    title: "Documents",
+                    items: canStatements
+                      ? [
+                          { label: "Download statement", icon: Download, onSelect: () => void handleStatement() },
+                          {
+                            label: "Email statement", icon: Mail, onSelect: () => void handleEmailStatement(),
+                            disabled: !tenant.email, hint: tenant.email ? undefined : "No email address on file. Add one under Edit.",
+                          },
+                        ]
+                      : [],
+                  },
+                  {
+                    title: "Tenancy",
+                    items: canManage
+                      ? [
+                          { label: "Record notice to leave", icon: AlertTriangle, onSelect: () => setMode("notice") },
+                          { label: "Move out and settle deposit", icon: LogOut, onSelect: () => setMode("moveout"), danger: true },
+                        ]
+                      : [],
+                  },
+                ]}
+              />
             </>
           )}
           {!isActive && mode === "view" && (
@@ -479,33 +474,7 @@ export default function TenantDetailPage() {
       )}
 
       {mode === "moveout" && (
-        <Card padding="md">
-          <form onSubmit={moveOutForm.handleSubmit(async (v) => {
-            try {
-              await moveOut.mutateAsync({ move_out_date: v.move_out_date, notes: v.notes, deposit_refund_percentage: v.deposit_refund_percentage });
-              toast.success("Tenant moved out"); setMode("view");
-            } catch (e) { toast.error(getErrorMessage(e, "Failed to process move-out")); }
-          })} className="space-y-4">
-            <div className="rounded-md bg-status-unpaid/8 p-3 text-sm text-status-unpaid flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              This will move the tenant out and free up the unit.
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <DatePicker label="Move-out date *" {...moveOutForm.register("move_out_date")} error={moveOutForm.formState.errors.move_out_date?.message} />
-              <Field label="Deposit refund %" error={moveOutForm.formState.errors.deposit_refund_percentage?.message}>
-                <input type="number" min={0} max={100} step={1} {...moveOutForm.register("deposit_refund_percentage")} className={inputCls} />
-              </Field>
-            </div>
-            <p className="-mt-1 text-[11px] text-content-muted">
-              Deposit paid: {KES(tenant.deposit_paid)}. Set to 0% if all forfeited due to damage.
-            </p>
-            <Field label="Notes"><textarea {...moveOutForm.register("notes")} rows={2} className={inputCls} /></Field>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setMode("view")}>Cancel</Button>
-              <Button type="submit" variant="danger" loading={moveOut.isPending}><LogOut className="h-4 w-4" /> Confirm move-out</Button>
-            </div>
-          </form>
-        </Card>
+        <SettlementForm tenant={tenant} onDone={() => setMode("view")} onCancel={() => setMode("view")} />
       )}
 
       {mode === "movein" && (
@@ -517,7 +486,7 @@ export default function TenantDetailPage() {
       {/* A returning tenant has one row per letting; link them together. */}
       {tenancies.length > 1 && (
         <Card padding="md">
-          <p className="text-xs uppercase tracking-wider text-content-muted">Tenancies</p>
+          <p className="text-xs text-content-muted">Tenancies</p>
           <ul className="mt-2 divide-y divide-border text-sm">
             {tenancies.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -541,7 +510,7 @@ export default function TenantDetailPage() {
       {/* Contact + finance summary */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <Card padding="md">
-          <p className="text-xs uppercase tracking-wider text-content-muted">Status</p>
+          <p className="text-xs text-content-muted">Status</p>
           <div className="mt-2 flex flex-wrap items-center gap-1">
             <Badge tone={tenant.status === "active" ? "sage" : tenant.status === "notice_given" ? "ochre" : "neutral"} withDot>
               {tenant.status_display}
@@ -552,7 +521,7 @@ export default function TenantDetailPage() {
           </div>
         </Card>
         <Card padding="md">
-          <p className="text-xs uppercase tracking-wider text-content-muted">Monthly rent</p>
+          <p className="text-xs text-content-muted">Monthly rent</p>
           <p className="mt-2 font-semibold tabular-nums text-content">{KES(tenant.monthly_rent)}</p>
           {tenant.is_billable === false && (
             <p className="mt-1 text-[11px] text-ink-500">
@@ -565,7 +534,7 @@ export default function TenantDetailPage() {
             the deposit was meant to be. Where a different figure was agreed,
             Edit records it and the card shows that instead. */}
         <Card padding="md">
-          <p className="text-xs uppercase tracking-wider text-content-muted">Rent security deposit</p>
+          <p className="text-xs text-content-muted">Rent security deposit</p>
           <p className="mt-2 font-semibold tabular-nums text-content">{KES(tenant.deposit_paid)}</p>
           <p className="mt-1 text-xs text-content-muted">
             {depositAgreed ? `${KES(tenant.expected_deposit)} agreed` : depositRule}
@@ -575,7 +544,7 @@ export default function TenantDetailPage() {
             A credit is the other side of the same figure, so it lives here
             rather than on a card of its own. */}
         <Card padding="md">
-          <p className="text-xs uppercase tracking-wider text-content-muted">
+          <p className="text-xs text-content-muted">
             {owedNow < 0 ? "Credit on Account" : "Balance"}
           </p>
           <p className={cn("mt-2 font-semibold tabular-nums", owedNow > 0 ? "text-orange-600" : "text-sage-600")}>
@@ -738,6 +707,12 @@ export default function TenantDetailPage() {
       {voidTarget && (
         <VoidPaymentModal payment={voidTarget} onClose={() => setVoidTarget(null)} />
       )}
+
+      {/* The deposit: held while they live here, then exactly how it was settled. */}
+      <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
+        <LeaseCard tenant={tenant} />
+        <DepositCard tenant={tenant} />
+      </div>
 
       {/* Combined commercial space — the units this tenancy occupies. Changing
           it moves the rent, so it takes the record-money privilege. */}

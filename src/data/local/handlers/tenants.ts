@@ -3,11 +3,12 @@ import type { DocumentType } from "@/lib/types";
 
 import { repos } from "../context";
 import { badRequest, created, fieldError, fileResponse, notFound, type LocalRequest, type Router } from "../http";
-import type { PaymentSource, TenantRow } from "../schema";
+import type { DepositDeduction, DepositDeductionKind, PaymentSource, TenantRow } from "../schema";
 import { logChange, logEvent } from "../services/audit";
 import {
-  buildLedger, currentBalance, ensureBilling, isCurrent, occupantOf, unitOf,
+  buildLedger, currentBalance, ensureBilling, expectedDeposit, isCurrent, occupantOf, unitOf,
 } from "../services/billing";
+import { settlementOf } from "../services/deposits";
 import { csvBlob } from "../services/documents";
 import { saveFile } from "../services/files";
 import { deliver } from "../services/notify";
@@ -15,7 +16,7 @@ import { recordPayment } from "../services/payments";
 import {
   byLabel, fullName, serializePayment, serializeTenant, serializeTenantDetail, tenantLabels,
 } from "../services/serializers";
-import { statementPdf } from "../services/statements";
+import { settlementPdf, statementPdf } from "../services/statements";
 import {
   bodyObject, bool, contains, dateField, decStr, idParam, intField, keyOfIso, money, monthKey,
   nowIso, requiredStr, round2, str, todayIso,
@@ -31,6 +32,76 @@ export function getTenant(id: number): TenantRow {
 }
 
 const tenantOf = (req: LocalRequest) => getTenant(idParam(req.params.id));
+
+const DEDUCTION_KINDS: Record<DepositDeductionKind, string> = {
+  unpaid_rent: "Unpaid rent",
+  damage: "Damage and repairs",
+  cleaning: "Cleaning",
+  utilities: "Unpaid utilities",
+  other: "Other",
+};
+
+function percentField(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0 || n > 100) throw fieldError("deposit_refund_percentage", "Enter a percentage from 0 to 100.");
+  return round2(n);
+}
+
+/**
+ * Turns a move-out request into a deposit settlement. Deductions plus the
+ * refund always add up to the deposit held, so the deposit leaves the books in
+ * full. The refund can be given as an amount, a percentage, or left to follow
+ * from the deductions; older clients that send only a percentage get the kept
+ * part as one "other" deduction.
+ */
+function settleDeposit(tenant: TenantRow, body: Record<string, unknown>, balance: number) {
+  const held = round2(tenant.deposit_paid);
+  const raw = Array.isArray(body.deductions) ? body.deductions : [];
+  const deductions: DepositDeduction[] = raw.map((d, i) => {
+    const row = bodyObject(d);
+    const kind = str(row.kind) as DepositDeductionKind;
+    if (!(kind in DEDUCTION_KINDS)) throw fieldError("deductions", `Line ${i + 1}: choose a reason for the deduction.`);
+    const amount = money(row.amount, "deductions", { allowZero: false });
+    return { kind, label: str(row.label) || DEDUCTION_KINDS[kind], amount };
+  });
+  const rent = round2(deductions.filter((d) => d.kind === "unpaid_rent").reduce((s, d) => s + d.amount, 0));
+  if (rent > balance + 0.01) {
+    throw fieldError("deductions", `Unpaid rent deducted (KES ${rent.toLocaleString()}) is more than the tenant owes (KES ${balance.toLocaleString()}).`);
+  }
+  const deducted = round2(deductions.reduce((s, d) => s + d.amount, 0));
+  if (deducted > held + 0.01) {
+    throw fieldError("deductions", `Deductions (KES ${deducted.toLocaleString()}) are more than the deposit held (KES ${held.toLocaleString()}).`);
+  }
+
+  let refund: number;
+  if (body.refund_amount !== undefined && str(body.refund_amount) !== "") {
+    refund = money(body.refund_amount, "refund_amount");
+  } else if (body.deposit_refund_percentage !== undefined && deductions.length === 0) {
+    refund = round2((held * percentField(body.deposit_refund_percentage)) / 100);
+    if (held - refund > 0.009) deductions.push({ kind: "other", label: "Kept at move-out", amount: round2(held - refund) });
+  } else {
+    refund = round2(held - deducted);
+  }
+  const explained = round2(deductions.reduce((s, d) => s + d.amount, 0) + refund);
+  if (Math.abs(explained - held) > 0.01) {
+    const gap = round2(held - explained);
+    throw fieldError(
+      "refund_amount",
+      gap > 0
+        ? `KES ${gap.toLocaleString()} of the deposit is not explained. Add it as a deduction or to the refund.`
+        : `The refund and deductions come to KES ${Math.abs(gap).toLocaleString()} more than the deposit held.`,
+    );
+  }
+  return {
+    deposit_refund_amount: refund,
+    deposit_refund_percentage: held > 0 ? round2((refund / held) * 100) : 0,
+    deposit_deductions: deductions,
+    refund_status: (refund > 0 ? "pending" : "none") as TenantRow["refund_status"],
+    refund_method: "" as const,
+    refund_reference: "",
+    refund_sent_on: null,
+  };
+}
 
 function validateKraPin(value: unknown) {
   const pin = str(value).toUpperCase();
@@ -182,6 +253,11 @@ export function registerTenants(router: Router) {
       agreed_deposit: null,
       deposit_refund_percentage: 100,
       deposit_refund_amount: 0,
+      deposit_deductions: [],
+      refund_status: "none",
+      refund_method: "",
+      refund_reference: "",
+      refund_sent_on: null,
       due_day: dueDay,
       is_billable: isBillable,
       billing_frequency: "monthly",
@@ -228,7 +304,11 @@ export function registerTenants(router: Router) {
     }
     if (body.due_day !== undefined && str(body.due_day) !== "") patch.due_day = intField(body.due_day, "due_day", { min: 1, max: 31 });
     if (body.deposit_refund_percentage !== undefined) {
-      patch.deposit_refund_percentage = intField(body.deposit_refund_percentage, "deposit_refund_percentage", { min: 0, max: 100 });
+      // A settled deposit is part of the books; it is never edited after move-out.
+      if (tenant.status === "moved_out") {
+        throw badRequest("This deposit has already been settled. Record a credit or a refund to correct it.");
+      }
+      patch.deposit_refund_percentage = percentField(body.deposit_refund_percentage);
     }
     if (body.agreed_deposit !== undefined) {
       patch.agreed_deposit = body.agreed_deposit === null || str(body.agreed_deposit) === "" ? null : money(body.agreed_deposit, "agreed_deposit");
@@ -273,21 +353,53 @@ export function registerTenants(router: Router) {
     const body = bodyObject(req.body);
     const date = dateField(body.move_out_date || todayIso(), "move_out_date")!;
     if (date < tenant.move_in_date) throw fieldError("move_out_date", "Cannot be before the move-in date.");
-    const pct = body.deposit_refund_percentage === undefined ? tenant.deposit_refund_percentage
-      : intField(body.deposit_refund_percentage, "deposit_refund_percentage", { min: 0, max: 100 });
     const r = repos();
-    const updated = r.tenants.update(tenant.id, {
-      status: "moved_out", move_out_date: date, deposit_refund_percentage: pct,
-      deposit_refund_amount: round2((tenant.deposit_paid * pct) / 100),
-      move_out_notes: str(body.notes) || tenant.move_out_notes, updated_at: nowIso(),
-    });
+
     // Nothing is billed after the month they left; their units are free again.
     const lastKey = keyOfIso(date);
     for (const c of r.charges.filter((c) => c.tenant === tenant.id && monthKey(c.period_year, c.period_month) > lastKey)) r.charges.remove(c.id);
+
+    const settlement = settleDeposit(tenant, body, Math.max(0, currentBalance(tenant.id)));
+    const updated = r.tenants.update(tenant.id, {
+      status: "moved_out", move_out_date: date, ...settlement,
+      move_out_notes: str(body.notes) || tenant.move_out_notes, updated_at: nowIso(),
+    });
     r.units.update(tenant.unit, { vacant_since: date });
     for (const u of r.units.filter((u) => u.combined_into === tenant.unit)) r.units.update(u.id, { combined_into: null, vacant_since: date });
-    logEvent(req, { action: "move_out", summary: `${fullName(tenant)} moved out (${pct}% of deposit refunded)`, objectType: "tenant", objectId: tenant.id, objectLabel: fullName(tenant), financial: true });
+    const kept = round2(tenant.deposit_paid - settlement.deposit_refund_amount);
+    logEvent(req, {
+      action: "move_out",
+      summary: `${fullName(tenant)} moved out. Deposit KES ${tenant.deposit_paid.toLocaleString()}: KES ${kept.toLocaleString()} deducted, KES ${settlement.deposit_refund_amount.toLocaleString()} to refund`,
+      objectType: "tenant", objectId: tenant.id, objectLabel: fullName(tenant), financial: true,
+    });
     return serializeTenantDetail(updated);
+  });
+
+  router.post("/tenants/:id/deposit-refund/", (req) => {
+    const tenant = tenantOf(req);
+    if (tenant.status !== "moved_out") throw badRequest("Only a settled deposit can be refunded.");
+    if (tenant.refund_status !== "pending") throw badRequest(tenant.refund_status === "sent" ? "This refund has already been sent." : "No refund is owed to this tenant.");
+    const body = bodyObject(req.body);
+    const method = str(body.method);
+    if (method !== "mpesa" && method !== "bank" && method !== "cheque") throw fieldError("method", "Choose M-Pesa, bank transfer or cheque.");
+    const reference = requiredStr(body.reference, "reference");
+    const sentOn = dateField(body.sent_on || todayIso(), "sent_on")!;
+    if (tenant.move_out_date && sentOn < tenant.move_out_date) throw fieldError("sent_on", "Cannot be before the move-out date.");
+    const updated = repos().tenants.update(tenant.id, {
+      refund_status: "sent", refund_method: method, refund_reference: reference, refund_sent_on: sentOn, updated_at: nowIso(),
+    });
+    logEvent(req, {
+      action: "deposit_refund",
+      summary: `Deposit refund of KES ${tenant.deposit_refund_amount.toLocaleString()} sent to ${fullName(tenant)} (${reference})`,
+      objectType: "tenant", objectId: tenant.id, objectLabel: fullName(tenant), financial: true,
+    });
+    return serializeTenantDetail(updated);
+  });
+
+  router.get("/tenants/:id/settlement-pdf/", (req) => {
+    const tenant = tenantOf(req);
+    if (tenant.status !== "moved_out") throw badRequest("The deposit is settled when the tenant moves out.");
+    return fileResponse(settlementPdf(tenant), `Deposit-settlement-${fullName(tenant).replace(/\s+/g, "-")}.pdf`);
   });
 
   router.post("/tenants/:id/move-in/", (req) => {
@@ -305,7 +417,8 @@ export function registerTenants(router: Router) {
     const tenant = repos().tenants.insert({
       ...(identity as Omit<TenantRow, "id">),
       unit: unit.id, monthly_rent: rent, deposit_paid: 0, agreed_deposit: null,
-      deposit_refund_percentage: 100, deposit_refund_amount: 0, status: "active",
+      deposit_refund_percentage: 100, deposit_refund_amount: 0, deposit_deductions: [],
+      refund_status: "none", refund_method: "", refund_reference: "", refund_sent_on: null, status: "active",
       move_in_date: moveIn, move_out_date: null, notice_date: null, intended_move_out_date: null,
       move_out_notes: "", billing_frequency: "monthly", is_billable: true, created_at: now, updated_at: now,
     });
@@ -401,3 +514,42 @@ export function registerTenants(router: Router) {
   });
 }
 
+
+/** The deposit register: what is held for current tenants, and how past deposits were settled. */
+export function registerDepositRoutes(router: Router) {
+  router.get("/deposits/", () => {
+    const r = repos();
+    const label = (t: TenantRow) => tenantLabels(t.id);
+    const held = r.tenants.filter(isCurrent).map((t) => {
+      const expected = expectedDeposit(t);
+      return {
+        tenant_id: t.id, tenant_name: fullName(t), unit_label: label(t).unit_label, building_name: label(t).building_name,
+        move_in_date: t.move_in_date, held: round2(t.deposit_paid), expected, shortfall: round2(Math.max(0, expected - t.deposit_paid)),
+        status: t.status,
+      };
+    }).sort((a, b) => a.building_name.localeCompare(b.building_name) || a.unit_label.localeCompare(b.unit_label));
+    const settled = r.tenants.filter((t) => t.status === "moved_out" && Boolean(t.move_out_date)).map((t) => {
+      const s = settlementOf(t);
+      return {
+        tenant_id: t.id, tenant_name: fullName(t), unit_label: label(t).unit_label, building_name: label(t).building_name,
+        move_out_date: t.move_out_date, held: s.held, applied_to_rent: s.appliedToRent, kept: s.kept, refund: s.refund,
+        refund_status: t.refund_status, refund_sent_on: t.refund_sent_on, refund_reference: t.refund_reference,
+      };
+    }).sort((a, b) => (b.move_out_date ?? "").localeCompare(a.move_out_date ?? ""));
+    const pending = settled.filter((s) => s.refund_status === "pending");
+    const yearAgo = `${Number(todayIso().slice(0, 4)) - 1}${todayIso().slice(4)}`;
+    return {
+      totals: {
+        held: round2(held.reduce((s, x) => s + x.held, 0)),
+        held_count: held.length,
+        shortfall: round2(held.reduce((s, x) => s + x.shortfall, 0)),
+        shortfall_count: held.filter((x) => x.shortfall > 0).length,
+        refunds_owed: round2(pending.reduce((s, x) => s + x.refund, 0)),
+        refunds_owed_count: pending.length,
+        kept_last_12_months: round2(settled.filter((x) => (x.move_out_date ?? "") >= yearAgo).reduce((s, x) => s + x.kept + x.applied_to_rent, 0)),
+      },
+      held,
+      settled,
+    };
+  });
+}

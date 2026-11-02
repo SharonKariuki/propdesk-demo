@@ -128,7 +128,7 @@ export default function UnitsPage() {
           {/* Total — gradient hero, matching the dashboard "Collected" card */}
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-navy-600 via-navy-800 to-navy-900 px-3 py-2 text-center text-white shadow-lg">
             <div aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-teal-500/25 blur-2xl" />
-            <p className="relative text-[9px] font-medium uppercase tracking-[0.14em] text-white/60">
+            <p className="relative text-[9px] font-medium text-white/60">
               Total
             </p>
             <p className="relative mt-0.5 font-display text-lg font-semibold tabular-nums">
@@ -145,7 +145,7 @@ export default function UnitsPage() {
             { label: "Occupancy", value: `${occupancyPct}%`, valueCls: "text-teal-700 dark:text-teal-400" },
           ].map((c) => (
             <Card key={c.label} variant="glass" padding="none" className="px-3 py-2 text-center">
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-ink-500">
+              <p className="text-[9px] font-medium text-ink-500">
                 {c.label}
               </p>
               <p className={cn("mt-0.5 font-display text-lg font-semibold tabular-nums", c.valueCls)}>
@@ -251,7 +251,7 @@ export default function UnitsPage() {
               {/* Rent + room type */}
               <div className="mt-4 flex items-end justify-between gap-2">
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-ink-400">Monthly rent</p>
+                  <p className="text-[11.5px] text-ink-400">Monthly rent</p>
                   <p className="font-display text-xl font-semibold text-ink-900 tabular-nums">
                     <span className="text-sm text-ink-500">KES </span>
                     {Number(unit.monthly_rent).toLocaleString()}

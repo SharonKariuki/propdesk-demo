@@ -55,6 +55,16 @@ export interface UnitRow {
   updated_at: string;
 }
 
+export type DepositDeductionKind = "unpaid_rent" | "damage" | "cleaning" | "utilities" | "other";
+
+/** One line of a deposit settlement. Unpaid rent is applied to the tenant's
+ *  account; every other kind is kept by the landlord as income. */
+export interface DepositDeduction {
+  kind: DepositDeductionKind;
+  label: string;
+  amount: number;
+}
+
 export interface TenantRow {
   id: number;
   first_name: string;
@@ -70,8 +80,16 @@ export interface TenantRow {
   monthly_rent: number;
   deposit_paid: number;
   agreed_deposit: number | null;
+  /** Share of the deposit refunded at move-out (0–100, two decimals). */
   deposit_refund_percentage: number;
   deposit_refund_amount: number;
+  /** Itemised deductions kept from the deposit at move-out. */
+  deposit_deductions: DepositDeduction[];
+  /** Refund owed to the tenant after settlement: none (nothing owed), pending, or sent. */
+  refund_status: "none" | "pending" | "sent";
+  refund_method: "mpesa" | "bank" | "cheque" | "";
+  refund_reference: string;
+  refund_sent_on: string | null;
   due_day: number;
   is_billable: boolean;
   billing_frequency: "monthly" | "quarterly";
@@ -351,6 +369,8 @@ export interface Meta {
   /** Owner's capital brought in when the books opened (bank, land, buildings). */
   opening: { bank: number; land: number; buildings: number; petty_cash_float: number };
   counters: Record<string, number>;
+  /** eTIMS submissions retried successfully in the demo (simulated KRA). */
+  etims_resubmitted?: string[];
 }
 
 export interface Tables {
@@ -386,4 +406,5 @@ export const TABLE_NAMES: TableName[] = [
   "maintenance", "audit", "login_attempts", "reset_tokens",
 ];
 
-export const SCHEMA_VERSION = 1;
+/** Bumped to 2 for deposit settlements: older browser data is regenerated. */
+export const SCHEMA_VERSION = 2;

@@ -101,7 +101,7 @@ function BuildingStep({
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)]">
       <div className="min-w-0 space-y-5">
       <fieldset>
-        <legend className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.14em] text-content-muted">
+        <legend className="mb-1.5 block text-[12px] font-medium text-content-muted">
           Building type *
         </legend>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -218,7 +218,7 @@ function UnitsStep({
         const rows = fields.map((f, index) => ({ id: f.id, index })).filter(({ index }) => Number(units[index]?.floor) === floor);
         return (
           <section key={floor} aria-labelledby={`floor-${floor}`} className="space-y-2">
-            <h3 id={`floor-${floor}`} className="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-muted">
+            <h3 id={`floor-${floor}`} className="text-[12px] font-semibold text-content-muted">
               {floorName(floor)} <span className="font-normal normal-case tracking-normal">· {rows.length} unit{rows.length === 1 ? "" : "s"}</span>
             </h3>
             <ul className="divide-y divide-hairline rounded-md border border-hairline">
@@ -312,16 +312,16 @@ function ReviewStep({
       </figure>
       <dl className="grid gap-4 sm:grid-cols-4">
         <div className="sm:col-span-2">
-          <dt className="text-[11px] uppercase tracking-[0.14em] text-content-muted">Building</dt>
+          <dt className="text-[12px] text-content-muted">Building</dt>
           <dd className="font-medium text-content">{building.name}</dd>
           {building.address && <dd className="text-sm text-content-muted">{building.address}</dd>}
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-[0.14em] text-content-muted">Type</dt>
+          <dt className="text-[12px] text-content-muted">Type</dt>
           <dd className="text-content">{building.building_type === "BUSINESS" ? "Commercial, 16% VAT" : "Residential"}</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-[0.14em] text-content-muted">Rent when fully let</dt>
+          <dt className="text-[12px] text-content-muted">Rent when fully let</dt>
           <dd className="font-display text-lg font-semibold tabular-nums text-content">{formatKES(totalRent)}</dd>
           <dd className="text-xs text-content-muted">
             {units.length} unit{units.length === 1 ? "" : "s"} on {building.total_floors} floor{building.total_floors === 1 ? "" : "s"}
@@ -438,7 +438,7 @@ export default function AddBuildingPage() {
           <ArrowLeft className="h-4 w-4" /> Back to Buildings
         </Link>
         {/* The step line below says where the owner is; the title is for screen readers only. */}
-        <p className="text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-600">New building</p>
+        <p className="text-xs font-semibold text-teal-700 dark:text-teal-600">New building</p>
         <h1 className="sr-only">Add a building</h1>
       </div>
 

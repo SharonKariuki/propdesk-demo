@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { TenantDetail, TenantListItem } from "@/lib/types";
+import type { DepositDeductionKind, TenantDetail, TenantListItem } from "@/lib/types";
 
 export interface TenantFilters {
   status?: string;
@@ -140,18 +140,42 @@ export function useMoveOutNotice(id: number | string) {
   });
 }
 
+/** Move-out with a deposit settlement: deductions plus the refund add up to the deposit. */
+export interface MoveOutPayload {
+  move_out_date?: string;
+  notes?: string;
+  deductions?: { kind: DepositDeductionKind; label: string; amount: number }[];
+  refund_amount?: number;
+  /** Older clients: refund a percentage and keep the rest as one deduction. */
+  deposit_refund_percentage?: number;
+}
+
+const invalidateMoney = (qc: ReturnType<typeof useQueryClient>) => {
+  for (const key of ["tenants", "units", "dashboard", "deposits", "accounting-checks", "reports", "accounting"]) {
+    qc.invalidateQueries({ queryKey: [key] });
+  }
+};
+
+/** Records that a settled deposit's refund has left the account. */
+export function useSendDepositRefund(id: number | string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { method: "mpesa" | "bank" | "cheque"; reference: string; sent_on: string }) => {
+      const { data } = await api.post(`/tenants/${id}/deposit-refund/`, payload);
+      return data as TenantDetail;
+    },
+    onSuccess: () => invalidateMoney(qc),
+  });
+}
+
 export function useMoveOutTenant(id: number | string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { move_out_date?: string; notes?: string; deposit_refund_percentage?: number }) => {
+    mutationFn: async (payload: MoveOutPayload) => {
       const { data } = await api.post(`/tenants/${id}/move-out/`, payload);
       return data as TenantDetail;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tenants"] });
-      qc.invalidateQueries({ queryKey: ["units"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-    },
+    onSuccess: () => invalidateMoney(qc),
   });
 }
 

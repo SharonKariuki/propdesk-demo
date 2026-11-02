@@ -131,7 +131,7 @@ function Field({
     : children;
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+      <label htmlFor={id} className="mb-1 block text-[12px] font-medium text-ink-500">
         {label}
       </label>
       {control}
@@ -224,8 +224,9 @@ export default function PaymentsPage() {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      tenant: 0,
-      amount: "",
+      // Opened from a tenant's page: tenant and amount due arrive prefilled.
+      tenant: Number(searchParams.get("tenant")) || 0,
+      amount: searchParams.get("amount") ?? "",
       payment_date: todayIso(),
       period_month: now.getMonth() + 1,
       period_year: now.getFullYear(),
@@ -236,7 +237,20 @@ export default function PaymentsPage() {
     },
   });
 
+  // Same tenant, same amount, within a day: almost always a double entry.
+  const [confirmDuplicate, setConfirmDuplicate] = useState<string | null>(null);
   const onSubmit = async (values: FormValues) => {
+    const key = `${values.tenant}:${Number(values.amount)}:${values.payment_date}`;
+    const dayMs = 86_400_000;
+    const twin = (allPayments ?? []).find((p) =>
+      !p.is_void && p.tenant === Number(values.tenant) && Number(p.amount) === Number(values.amount)
+      && Math.abs(Date.parse(p.payment_date) - Date.parse(values.payment_date)) <= dayMs);
+    if (twin && confirmDuplicate !== key) {
+      setConfirmDuplicate(key);
+      toast.error(`${twin.tenant_name} already has a KES ${Number(twin.amount).toLocaleString()} payment on ${twin.payment_date} (${twin.reference || twin.source_display}). Press Save again only if this is a second payment.`, { duration: 7000 });
+      return;
+    }
+    setConfirmDuplicate(null);
     try {
       await createPayment.mutateAsync(values);
       toast.success("Payment recorded");
@@ -250,9 +264,8 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Collections"
         title="Payments"
-        description={`${now.toLocaleString("en-GB", { month: "long" })} · bank and M-Pesa matched automatically`}
+        description={`${now.toLocaleString("en-GB", { month: "long" })}: M-Pesa and bank payments are matched to tenants automatically`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button

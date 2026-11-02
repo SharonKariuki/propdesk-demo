@@ -11,10 +11,10 @@ const sidebar = (page: Page) => page.locator("aside");
 
 test("caretaker: operational screens only, no money", async ({ page }) => {
   await signInAs(page, "caretaker@mawingu.test");
-  for (const visible of ["Dashboard", "Buildings", "Units", "Tenants", "Water", "Settings"]) {
+  for (const visible of ["Home", "Properties", "Units", "Tenants", "Water readings", "Settings"]) {
     await expect(sidebar(page).getByRole("link", { name: visible })).toBeVisible();
   }
-  for (const hidden of ["Payments", "Reconciliation", "Expenses", "Income", "Accounting", "Notifications", "Reports", "Activity"]) {
+  for (const hidden of ["Payments", "Reconciliation", "Deposits", "Expenses", "Other income", "Books", "Tax & eTIMS", "Messages", "Reports", "Activity log"]) {
     await expect(sidebar(page).getByRole("link", { name: hidden })).toHaveCount(0);
   }
   await expect(page.getByRole("button", { name: "Record payment" })).toHaveCount(0);
@@ -26,7 +26,7 @@ test("caretaker: operational screens only, no money", async ({ page }) => {
   // Tenant page: no edit / move-out / money actions.
   await page.goto("/tenants/1");
   await expect(page.getByText("Unit KC1A")).toBeVisible();
-  for (const name of ["Edit", "Move Out", "Add Credit", "Add Charge", "Statement PDF"]) {
+  for (const name of ["Edit", "More", "Record payment"]) {
     await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
   }
 });
@@ -39,7 +39,11 @@ test("accountant: records money but cannot reverse it", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Record Payment" })).toBeVisible();
   await page.goto("/tenants/2");
   await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add Credit" })).toHaveCount(0);
+  await page.getByRole("button", { name: "More" }).click();
+  await expect(page.getByRole("menuitem", { name: "Download statement" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Add a credit" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: /Move out/ })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: /Void/ })).toHaveCount(0);
   await page.goto("/buildings");
   await expect(page.getByRole("button", { name: "Add Building" })).toBeHidden();

@@ -55,7 +55,7 @@ function CopyValue({ label, value }: { label: string; value: string }) {
 function TopupDetails({ topup, compact }: { topup: SmsBalance["topup"]; compact: boolean }) {
   return (
     <div className={cn("rounded-lg border border-gray-200/70", compact ? "p-2.5" : "p-3")}>
-      <p className="mb-1.5 text-xs font-medium uppercase tracking-wider text-ink-500">
+      <p className="mb-1.5 text-xs font-medium text-ink-500">
         Top up by M-Pesa
       </p>
       <dl className="flex flex-wrap items-center gap-x-6 gap-y-1">

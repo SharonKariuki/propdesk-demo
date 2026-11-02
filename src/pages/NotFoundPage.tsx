@@ -6,7 +6,7 @@ export default function NotFoundPage() {
   const navigate = useNavigate();
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
-      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-500">
+      <p className="text-[12px] font-medium text-ink-500">
         404
       </p>
       <h1 className="font-display text-3xl font-semibold text-ink-900">

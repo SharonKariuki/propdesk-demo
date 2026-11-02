@@ -4,7 +4,7 @@ import { badRequest, created, type Router } from "../http";
 import type { NotificationRow, TenantRow } from "../schema";
 import { logEvent } from "../services/audit";
 import {
-  currentBalance, isCurrent, occupantOf, unitStatus, vatOn,
+  currentBalance, isCurrent, monthDue, occupantOf, paidInMonth, unitStatus, vatOn,
 } from "../services/billing";
 import { deliver, SMS_LOW_THRESHOLD, SMS_UNIT_COST, TEMPLATES } from "../services/notify";
 import { fullName, serializeNotification, serializePayment, tenantLabels } from "../services/serializers";
@@ -12,6 +12,10 @@ import {
   bodyObject, currentKey, daysBetween, decStr, fromMonthKey, keyOfIso, monthShort, nowIso,
   round2, str, todayIso,
 } from "../util";
+
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "3 Nov 2026": the one date format people read in the product. */
+export const friendlyDate = (iso: string) => `${Number(iso.slice(8, 10))} ${SHORT_MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
 
 function fill(text: string, t: TenantRow) {
   const l = tenantLabels(t.id);
@@ -174,11 +178,11 @@ export function dashboardSummary() {
     if (status === "arrears") alerts.push({ type: "overdue", message: `${fullName(t)} (${l.unit_label}) owes KES ${bal.toLocaleString()}`, tenant_id: t.id });
     else if (status === "occupied_partial") alerts.push({ type: "partial", message: `${fullName(t)} (${l.unit_label}) has paid part of this month — KES ${bal.toLocaleString()} left`, tenant_id: t.id });
     if (t.status === "notice_given" && t.intended_move_out_date) {
-      alerts.push({ type: "move_out", message: `${fullName(t)} leaves ${l.unit_label} on ${t.intended_move_out_date}`, tenant_id: t.id });
+      alerts.push({ type: "move_out", message: `${fullName(t)} leaves ${l.unit_label} on ${friendlyDate(t.intended_move_out_date)}`, tenant_id: t.id });
     }
     const anniversary = nextAnniversary(t.move_in_date, today);
     if (t.status === "active" && daysBetween(today, anniversary) <= 30) {
-      alerts.push({ type: "expiring_lease", message: `${fullName(t)}'s lease on ${l.unit_label} renews on ${anniversary}`, tenant_id: t.id });
+      alerts.push({ type: "expiring_lease", message: `${fullName(t)}'s lease on ${l.unit_label} renews on ${friendlyDate(anniversary)}`, tenant_id: t.id });
     }
   }
   for (const m of r.maintenance.filter((m) => m.status !== "resolved")) {
@@ -186,8 +190,42 @@ export function dashboardSummary() {
     alerts.push({ type: "maintenance", message: `Maintenance open on ${unit?.label ?? "a unit"}: ${m.description}`, unit_id: m.unit });
   }
 
+  // Honest arrears: rent for this month is not late until its due day has passed.
+  const dayOfMonth = Number(today.slice(8, 10));
+  let overdueTotal = 0;
+  let overdueCount = 0;
+  let notLateTotal = 0;
+  let notLateCount = 0;
+  for (const t of current) {
+    const bal = balances.get(t.id) ?? 0;
+    if (bal <= 0) continue;
+    const notLate = dayOfMonth <= t.due_day
+      ? Math.min(bal, Math.max(0, monthDue(t.id, now) - paidInMonth(t.id, now)))
+      : 0;
+    const overdue = round2(bal - notLate);
+    if (overdue > 0.5) { overdueTotal += overdue; overdueCount += 1; }
+    if (notLate > 0.5) { notLateTotal += notLate; notLateCount += 1; }
+  }
+  const credits = round2([...balances.values()].filter((b) => b < 0).reduce((s, b) => s - b, 0));
+  // Cash in last month up to the same day, so a 1st-of-month view is not compared with a whole month.
+  const prev = fromMonthKey(now - 1);
+  const sameDayPrev = `${prev.year}-${String(prev.month).padStart(2, "0")}-${String(Math.min(dayOfMonth, new Date(prev.year, prev.month, 0).getDate())).padStart(2, "0")}`;
+  const lastMonthToDate = round2(r.payments
+    .filter((p) => !p.voided_at && p.payment_type !== "deposit" && keyOfIso(p.payment_date) === now - 1 && p.payment_date <= sameDayPrev)
+    .reduce((s, p) => s + p.amount, 0));
+  const dueDays = current.map((t) => t.due_day).sort((a, b) => a - b);
+  const typicalDueDay = dueDays.length ? dueDays[Math.floor(dueDays.length / 2)] : 5;
+
   return {
     kpis: {
+      overdue_total: round2(overdueTotal),
+      overdue_count: overdueCount,
+      due_not_late_total: round2(notLateTotal),
+      due_not_late_count: notLateCount,
+      tenant_credits_total: credits,
+      last_month_to_date_received: lastMonthToDate,
+      due_day: typicalDueDay,
+      deposits_held: round2(current.reduce((s, t) => s + t.deposit_paid, 0)),
       total_units: lettable.length,
       occupied: lettable.length - occupancy.vacant,
       vacant: occupancy.vacant,

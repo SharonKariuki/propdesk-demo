@@ -30,7 +30,7 @@ import {
 
 const selectCls =
   "w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-content focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-ring/25";
-const labelCls = "mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500";
+const labelCls = "mb-1 block text-[12px] font-medium text-ink-500";
 
 function KindBadge({ group }: { group: ActivityGroup }) {
   const { head } = group;
@@ -284,7 +284,7 @@ export default function ActivityPage() {
           <div className="space-y-5">
             {days.map(({ day, groups }) => (
               <section key={day}>
-                <h2 className="border-b border-border pb-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
+                <h2 className="border-b border-border pb-2 text-xs font-semibold text-ink-500">
                   {day}
                 </h2>
                 <ul className="divide-y divide-border">

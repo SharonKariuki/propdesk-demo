@@ -270,7 +270,7 @@ export default function AddCreditPage() {
               </Field>
 
               <fieldset className="space-y-1.5">
-                <legend className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+                <legend className="mb-1 text-[12px] font-medium text-ink-500">
                   What should happen to this credit?
                 </legend>
                 <label className="flex items-start gap-2 text-sm text-ink-900">

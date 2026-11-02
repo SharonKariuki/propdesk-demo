@@ -186,7 +186,7 @@ export function VoidPaymentModal({
 
       {preview?.requeueable && (
         <fieldset className="mt-4 space-y-2">
-          <legend className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+          <legend className="mb-1.5 text-[12px] font-medium text-ink-500">
             What should happen to this money?
           </legend>
           <label className="flex items-start gap-2 text-xs text-ink-900">
@@ -227,7 +227,7 @@ export function VoidPaymentModal({
 
       <label
         htmlFor="void-reason"
-        className="mb-1 mt-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500"
+        className="mb-1 mt-4 block text-[12px] font-medium text-ink-500"
       >
         Reason *
       </label>

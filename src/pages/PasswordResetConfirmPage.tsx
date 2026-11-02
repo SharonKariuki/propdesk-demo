@@ -60,7 +60,7 @@ export default function PasswordResetConfirmPage() {
     <AuthShell title="Set a new password" subtitle="Choose a password at least 12 characters long.">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+          <label className="mb-1 block text-[12px] font-medium text-ink-500">
             New password
           </label>
           <div className="relative">
@@ -70,7 +70,7 @@ export default function PasswordResetConfirmPage() {
           {errors.password && <p className="mt-1 text-[11px] text-status-unpaid">{errors.password.message}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+          <label className="mb-1 block text-[12px] font-medium text-ink-500">
             Confirm password
           </label>
           <div className="relative">

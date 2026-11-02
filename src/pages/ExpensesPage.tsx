@@ -51,7 +51,7 @@ function Field({ label, error, children, className, hint }: {
     : children;
   return (
     <div className={className}>
-      <label htmlFor={id} className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+      <label htmlFor={id} className="mb-1 block text-[12px] font-medium text-ink-500">
         {label}
       </label>
       {control}
@@ -186,7 +186,7 @@ export default function ExpensesPage() {
         <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-coral-400/25 blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ink-500">
+            <p className="text-[12px] font-medium text-ink-500">
               Total for{" "}
               {new Date(filterYear, filterMonth - 1).toLocaleString("default", { month: "long" })}{" "}
               {filterYear}

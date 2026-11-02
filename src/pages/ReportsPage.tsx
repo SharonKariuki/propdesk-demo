@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Bar, BarChart, CartesianGrid, Cell, Line, LineChart,
+  Bar, BarChart, CartesianGrid, Cell,
   Pie, PieChart, ResponsiveContainer, Tooltip as RcTooltip, XAxis, YAxis,
 } from "recharts";
 
@@ -28,41 +28,47 @@ import {
   useMonthlyCollection,
   useMoveLog,
   useOccupancyReport,
-  useProfitLoss,
-  useProfitLossAnnual,
   useRentBalances,
   useRentOverpayments,
   useTenantHistory,
   useTenantStatement,
-  useTrialBalance,
   useUnitStatement,
   useVacantUnits,
   useReport,
 } from "@/hooks/useReports";
+import { MonthlyReport } from "@/features/reports/MonthlyReport";
 import { cn } from "@/lib/cn";
 import { GhostBarChart, KpiTile, Money, PanelHeader, PropBar, Segmented } from "@/components/ds";
 import { fmt as fmtWhole } from "@/lib/figures";
 
 const TABS = [
+  { key: "management",     label: "Monthly report" },
   { key: "overview",       label: "Income" },
   { key: "monthly",        label: "Collections" },
-  { key: "annual",         label: "Annual Income" },
+  { key: "annual",         label: "Annual income" },
   { key: "arrears",        label: "Arrears" },
-  { key: "rent_balances",  label: "Rent Balances" },
+  { key: "rent_balances",  label: "Rent balances" },
   { key: "overpayments",   label: "Overpayments" },
-  { key: "aging",          label: "Aging Balances" },
-  { key: "expiring",       label: "Expiring Leases" },
-  { key: "tenant",         label: "Tenant History" },
-  { key: "tenant_stmt",    label: "Tenant Statement" },
-  { key: "unit_stmt",      label: "Unit Statement" },
-  { key: "landlord",       label: "Landlord Statement" },
+  { key: "aging",          label: "Arrears by age" },
+  { key: "expiring",       label: "Expiring leases" },
+  { key: "tenant",         label: "Tenant history" },
+  { key: "tenant_stmt",    label: "Tenant statement" },
+  { key: "unit_stmt",      label: "Unit statement" },
+  { key: "landlord",       label: "Landlord statement" },
   { key: "occupancy",      label: "Occupancy" },
-  { key: "vacant",         label: "Vacant Units" },
-  { key: "moves",          label: "Move Log" },
-  { key: "pnl",            label: "P&L" },
-  { key: "trial",          label: "Trial Balance" },
-  { key: "breakdown",      label: "Expense Breakdown" },
+  { key: "vacant",         label: "Vacant units" },
+  { key: "moves",          label: "Move log" },
+  { key: "breakdown",      label: "Expense breakdown" },
 ] as const;
+
+/** Reports grouped by the question they answer, so 17 reports read as five choices. */
+const GROUPS: { title: string; tabs: (typeof TABS)[number]["key"][] }[] = [
+  { title: "Monthly report", tabs: ["management"] },
+  { title: "Collections and arrears", tabs: ["overview", "monthly", "annual", "arrears", "aging", "rent_balances", "overpayments"] },
+  { title: "Tenants and leases", tabs: ["tenant", "tenant_stmt", "expiring", "moves"] },
+  { title: "Occupancy", tabs: ["occupancy", "vacant"] },
+  { title: "Property performance", tabs: ["landlord", "unit_stmt", "breakdown"] },
+];
 
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -121,7 +127,8 @@ function ReportCard({ title, summary, exportBar, filters, children }: {
 export default function ReportsPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get("tab");
-  const tab: TabKey = TABS.some((t) => t.key === requested) ? (requested as TabKey) : "overview";
+  const tab: TabKey = TABS.some((t) => t.key === requested) ? (requested as TabKey) : "management";
+  const group = GROUPS.find((g) => g.tabs.includes(tab)) ?? GROUPS[0];
   const setTab = (key: TabKey) => {
     const next = new URLSearchParams(params);
     next.set("tab", key);
@@ -130,23 +137,38 @@ export default function ReportsPage() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <PageHeader eyebrow="Analytics" title="Reports"
-        description="Live figures from the books — filter any report by month, building or tenant, and export it as CSV or PDF." />
+      <PageHeader title="Reports"
+        description="Live figures from the books. Filter by month, property or tenant, and download as PDF, Excel or CSV. Profit and loss and the trial balance are in Books." />
 
-      <div className="glass flex gap-1 overflow-x-auto !rounded-full p-1" role="tablist">
-        {TABS.map((t) => (
-          <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
-            className={cn(
-              "whitespace-nowrap rounded-full px-[13px] py-[7px] text-[13px] font-medium transition-colors",
-              tab === t.key ? "bg-navy-800 text-white dark:text-neutral-950"
-                           : "text-content-muted hover:text-content",
-            )}>
-            {t.label}
-          </button>
-        ))}
+      <div className="space-y-2 print:hidden">
+        <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Report groups">
+          {GROUPS.map((g) => (
+            <button key={g.title} role="tab" aria-selected={group === g} onClick={() => setTab(g.tabs[0])}
+              className={cn(
+                "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-[13.5px] font-medium transition-colors",
+                group === g ? "border-content text-content" : "border-transparent text-content-muted hover:text-content",
+              )}>
+              {g.title}
+            </button>
+          ))}
+        </div>
+        {group.tabs.length > 1 && (
+          <div className="flex flex-wrap gap-1" role="tablist" aria-label={group.title}>
+            {group.tabs.map((key) => (
+              <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
+                className={cn(
+                  "whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+                  tab === key ? "bg-navy-800 text-white dark:text-neutral-950" : "text-content-muted hover:bg-hover hover:text-content",
+                )}>
+                {TABS.find((t) => t.key === key)?.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="min-w-0 animate-fade-up">
+        {tab === "management"    && <MonthlyReport />}
         {tab === "overview"      && <OverviewTab />}
         {tab === "monthly"       && <MonthlyTab />}
         {tab === "annual"        && <AnnualTab />}
@@ -162,8 +184,6 @@ export default function ReportsPage() {
         {tab === "occupancy"     && <OccupancyTab />}
         {tab === "vacant"        && <VacantUnitsTab />}
         {tab === "moves"         && <MoveLogTab />}
-        {tab === "pnl"           && <ProfitLossTab />}
-        {tab === "trial"         && <TrialBalanceTab />}
         {tab === "breakdown"     && <ExpenseBreakdownTab />}
       </div>
     </div>
@@ -699,11 +719,11 @@ function TenantTab() {
             </div>
             <div className="ml-auto flex gap-6 text-right">
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-ink-500">Paid in period</p>
+                <p className="text-[12px] text-ink-500">Paid in period</p>
                 <p className="font-display text-xl font-semibold text-sage-700">{kes(data.period_paid)}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-ink-500">Balance today</p>
+                <p className="text-[12px] text-ink-500">Balance today</p>
                 <p className={cn("font-display text-xl font-semibold", data.balance > 0 ? "text-status-unpaid" : "text-sage-700")}>{kes(data.balance)}</p>
               </div>
             </div>
@@ -992,144 +1012,6 @@ function MoveLogTab() {
   );
 }
 
-// ─── P&L ─────────────────────────────────────────────────────────────────────
-interface PnlLine { label: string; amount: number }
-const PNL_COLS: Col<PnlLine>[] = [
-  { label: "Line", get: (r) => r.label },
-  { label: "Amount", get: (r) => r.amount, money: true },
-];
-interface PnlMonth { month: number; income: number; expenses: number; net: number }
-const PNL_ANNUAL_COLS: Col<PnlMonth>[] = [
-  { label: "Month", get: (r) => monthName(r.month) },
-  { label: "Income", get: (r) => r.income, money: true },
-  { label: "Expenses", get: (r) => r.expenses, money: true },
-  { label: "Net", get: (r) => r.net, money: true },
-];
-
-function ProfitLossTab() {
-  const [mode, setMode] = useState<"monthly" | "annual">("monthly");
-  const [month, setMonth] = useMonth();
-  const [year, setYear] = useYear();
-  const [building, setBuilding] = useState<number | null>(null);
-  const monthly = useProfitLoss(month, year, building);
-  const annual = useProfitLossAnnual(year, building);
-  const q = mode === "monthly" ? monthly : annual;
-  const data = q.data;
-  const scope = data?.building_name ?? "All buildings";
-
-  const monthlyLines: PnlLine[] = mode === "monthly" && data ? [
-    ...(data.income_breakdown ?? []).map((l: PnlLine) => ({ label: `Income · ${l.label}`, amount: l.amount })),
-    { label: "Total income", amount: data.income },
-    ...(data.expense_breakdown ?? []).map((e: { category: string; amount: number }) => ({ label: `Expense · ${e.category}`, amount: e.amount })),
-    { label: "Total expenses", amount: data.total_expenses },
-    { label: "Net profit", amount: data.net_profit },
-  ] : [];
-  const annualFooter = mode === "annual" && data
-    ? { Month: "Total", Income: data.grand_income, Expenses: data.grand_expenses, Net: data.grand_net }
-    : undefined;
-
-  return (
-    <ReportCard
-      title="Profit & Loss"
-      summary={<>{mode === "monthly" ? periodLabel(month, year) : `Full year ${year}`} · {scope} · income net of VAT</>}
-      exportBar={data && (mode === "monthly"
-        ? <ExportBar title={`P&L ${periodLabel(month, year)}`} subtitle={scope} filename={`pnl-${year}-${month}`} cols={PNL_COLS} rows={monthlyLines} />
-        : <ExportBar title={`P&L ${year}`} subtitle={scope} filename={`pnl-${year}`} cols={PNL_ANNUAL_COLS} rows={data.monthly ?? []} footer={annualFooter} />)}
-      filters={<FilterBar>
-        <div className="glass flex overflow-hidden rounded-md">
-          <button onClick={() => setMode("monthly")} className={cn("px-3 py-2 text-xs font-medium", mode === "monthly" ? "bg-ink-900 text-canvas" : "text-ink-600")}>Monthly</button>
-          <button onClick={() => setMode("annual")} className={cn("px-3 py-2 text-xs font-medium", mode === "annual" ? "bg-ink-900 text-canvas" : "text-ink-600")}>Annual</button>
-        </div>
-        {mode === "monthly"
-          ? <MonthYearPicker month={month} year={year} onMonth={setMonth} onYear={setYear} />
-          : <YearPicker year={year} onYear={setYear} />}
-        <BuildingFilter value={building} onChange={setBuilding} />
-        <LiveStatus query={q} />
-      </FilterBar>}
-    >
-      {q.isLoading && !data && <Skeleton className="h-48" />}
-      {q.isError && !data && <ErrorState title="Profit & loss could not be loaded." onRetry={() => void q.refetch()} />}
-      {data && mode === "monthly" && (
-        <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SummaryCard label="Income" value={kes(data.income)} tone="sage" />
-            <SummaryCard label="Expenses" value={kes(data.total_expenses)} tone="coral" />
-            <SummaryCard label="Net profit" value={kes(data.net_profit)} tone={data.net_profit >= 0 ? "sage" : "coral"} />
-          </div>
-          <div className="grid gap-5 lg:grid-cols-2">
-            <ReportTable cols={[{ label: "Income", get: (r: PnlLine) => r.label }, { label: "Amount", get: (r: PnlLine) => r.amount, money: true }]}
-              rows={data.income_breakdown ?? []} footer={{ Income: "Total income", Amount: data.income }}
-              empty="No income recorded for this period." rowKey={(r) => r.label} />
-            <ReportTable cols={[{ label: "Expense", get: (r: { category: string; amount: number }) => r.category }, { label: "Amount", get: (r: { category: string; amount: number }) => r.amount, money: true }]}
-              rows={data.expense_breakdown ?? []} footer={{ Expense: "Total expenses", Amount: data.total_expenses }}
-              empty="No expenses recorded for this period." rowKey={(r) => r.category} />
-          </div>
-        </div>
-      )}
-      {data && mode === "annual" && (
-        <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SummaryCard label="Income" value={kes(data.grand_income)} tone="sage" />
-            <SummaryCard label="Expenses" value={kes(data.grand_expenses)} tone="coral" />
-            <SummaryCard label="Net profit" value={kes(data.grand_net)} tone={data.grand_net >= 0 ? "sage" : "coral"} />
-          </div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={(data.monthly as PnlMonth[]).map((m) => ({
-                month: monthName(m.month, "short"), Income: m.income, Expenses: m.expenses, Net: m.net,
-              }))} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tick={AXIS_TICK} />
-                <YAxis tickLine={false} axisLine={false} tick={AXIS_TICK} />
-                <RcTooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => kes(v)} />
-                <Line type="monotone" dataKey="Income" stroke="rgb(216,154,58)" strokeWidth={2.5} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="Expenses" stroke="rgb(232,137,107)" strokeWidth={2.5} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="Net" stroke="rgb(139,157,195)" strokeWidth={2.5} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <ReportTable cols={PNL_ANNUAL_COLS} rows={data.monthly} footer={annualFooter} rowKey={(r) => r.month} />
-        </div>
-      )}
-    </ReportCard>
-  );
-}
-
-// ─── Trial balance ───────────────────────────────────────────────────────────
-interface TbRow { account: string; debit: number; credit: number }
-const TB_COLS: Col<TbRow>[] = [
-  { label: "Account", get: (r) => r.account },
-  { label: "Debit", get: (r) => r.debit || null, money: true },
-  { label: "Credit", get: (r) => r.credit || null, money: true },
-];
-
-function TrialBalanceTab() {
-  const [month, setMonth] = useMonth();
-  const [year, setYear] = useYear();
-  const [building, setBuilding] = useState<number | null>(null);
-  const q = useTrialBalance(month, year, building);
-  const { data } = q;
-  const footer = data && { Account: "Total", Debit: data.total_debit, Credit: data.total_credit };
-  return (
-    <ReportCard
-      title={<span className="flex items-center gap-3">Trial Balance
-        {data && <Badge tone={data.is_balanced ? "sage" : "coral"} withDot>{data.is_balanced ? "Balanced" : "Unbalanced"}</Badge>}</span>}
-      summary={`${periodLabel(month, year)} · debits and credits posted in the month, from the general ledger`}
-      exportBar={<ExportBar title={`Trial Balance (movements) ${periodLabel(month, year)}`} filename={`trial-balance-${year}-${month}`}
-        cols={TB_COLS} rows={data?.accounts ?? []} footer={footer} />}
-      filters={<FilterBar>
-        <MonthYearPicker month={month} year={year} onMonth={setMonth} onYear={setYear} />
-        <BuildingFilter value={building} onChange={setBuilding} />
-        <LiveStatus query={q} />
-      </FilterBar>}
-    >
-      <ReportTable cols={TB_COLS} rows={data?.accounts} footer={footer} rowKey={(r) => r.account}
-        empty="Nothing was posted to the ledger in this period."
-        isLoading={q.isLoading} isError={q.isError} onRetry={() => void q.refetch()} />
-    </ReportCard>
-  );
-}
-
 // ─── Expense breakdown ───────────────────────────────────────────────────────
 interface CategoryRow { category: string; total: number; percentage: number; count: number }
 const CATEGORY_COLS: Col<CategoryRow>[] = [
@@ -1185,7 +1067,7 @@ function ExpenseBreakdownTab() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="text-[11px] uppercase tracking-wider text-ink-500">Total</p>
+                  <p className="text-[12px] text-ink-500">Total</p>
                   <p className="font-display text-xl font-semibold text-ink-900">{kes(data.total_expenses)}</p>
                 </div>
               </div>

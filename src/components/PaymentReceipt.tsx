@@ -64,7 +64,7 @@ export default function PaymentReceipt({ data, className }: PaymentReceiptProps)
         <div>
           <div className="flex items-center gap-2">
             <Receipt className="h-4 w-4 text-sage-600" />
-            <span className="font-sans text-xs font-semibold uppercase tracking-widest text-sage-700">
+            <span className="font-sans text-xs font-semibold text-sage-700">
               Payment Receipt
             </span>
           </div>
@@ -77,7 +77,7 @@ export default function PaymentReceipt({ data, className }: PaymentReceiptProps)
         </div>
         <span
           className={cn(
-            "rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+            "rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold",
             data.unit_classification === "BUSINESS"
               ? "bg-peri-100 text-peri-700 dark:bg-peri-900/30 dark:text-peri-300"
               : "bg-sage-100 text-sage-700 dark:bg-sage-900/30 dark:text-sage-300",

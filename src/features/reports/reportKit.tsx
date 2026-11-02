@@ -293,7 +293,7 @@ export function SummaryCard({ label, value, tone = "ink", hint }: {
   }[tone];
   return (
     <div className="neu-sm min-w-0 p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">{label}</p>
+      <p className="text-[12px] font-medium text-ink-500">{label}</p>
       <p className={cn("mt-1 truncate font-display text-xl font-semibold", toneClass)}>{value}</p>
       {hint && <p className="mt-0.5 text-xs text-ink-500">{hint}</p>}
     </div>

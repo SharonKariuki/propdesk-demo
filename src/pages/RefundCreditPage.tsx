@@ -146,7 +146,7 @@ export default function RefundCreditPage() {
               {payeeDiffers && <Note tone="warn">This isn&apos;t the tenant&apos;s registered number.</Note>}
 
               <fieldset className="space-y-1.5">
-                <legend className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+                <legend className="mb-1 text-[12px] font-medium text-ink-500">
                   Has the money already been sent?
                 </legend>
                 <label className="flex items-center gap-2 text-sm">

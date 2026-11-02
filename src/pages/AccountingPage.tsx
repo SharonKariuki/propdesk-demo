@@ -9,6 +9,7 @@ import {
   Badge, Card, EmptyState, ErrorState, PageHeader, Skeleton,
   Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
+import { ChecksPanel } from "@/features/accounting/ChecksPanel";
 import { fmtDate, kes, selectCls } from "@/features/reports/reportFormat";
 import {
   BuildingFilter, DownloadButtons, FilterBar, LiveStatus, SearchBox, SelectFilter,
@@ -98,7 +99,7 @@ const TONE_TEXT = {
 function StatTile({ label, value, tone = "ink" }: { label: string; value: string; tone?: keyof typeof TONE_TEXT }) {
   return (
     <div className="neu-sm min-w-0 p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">{label}</p>
+      <p className="text-[12px] font-medium text-ink-500">{label}</p>
       <p className={cn("mt-1 truncate font-display text-xl font-semibold tabular-nums", TONE_TEXT[tone])}>{value}</p>
     </div>
   );
@@ -144,7 +145,7 @@ function GroupRows({ group, showHeading }: { group: Group; showHeading: boolean 
     <>
       {showHeading && (
         <TR className="bg-canvas-alt hover:bg-canvas-alt">
-          <TD colSpan={2} className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-600">{group.name}</TD>
+          <TD colSpan={2} className="text-[12px] font-semibold text-ink-600">{group.name}</TD>
         </TR>
       )}
       {group.accounts.map((a) => (
@@ -175,7 +176,7 @@ function BalanceSheetView({ data }: { data: AccountingData }) {
           <StatementSection title="Liabilities" groups={data.liabilities} total={data.total_liabilities} />
           <StatementSection title="Equity" groups={data.equity} total={data.total_equity} />
           <div className="neu-sm flex items-center justify-between p-4">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-500">Liabilities + equity</span>
+            <span className="text-[12px] font-semibold text-ink-500">Liabilities + equity</span>
             <span className="font-display text-lg font-semibold tabular-nums">{kes(data.total_liabilities_and_equity)}</span>
           </div>
         </div>
@@ -401,7 +402,7 @@ function CoAView({ data, onOpenLedger }: { data: AccountingData; onOpenLedger: (
         {rows.map((a) => a.is_header ? (
           <TR key={a.code} className="bg-canvas-alt hover:bg-canvas-alt">
             <TD className="font-mono text-xs font-semibold text-ink-700">{a.code}</TD>
-            <TD colSpan={5} className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-600">{a.name}</TD>
+            <TD colSpan={5} className="text-[12px] font-semibold text-ink-600">{a.name}</TD>
             <Num strong>{kes(a.closing)}</Num>
           </TR>
         ) : (
@@ -663,10 +664,10 @@ export default function AccountingPage() {
   return (
     <div className="min-w-0 space-y-6">
       <PageHeader
-        eyebrow="Finance"
-        title="Accounting Suite"
-        description="Balance Sheet, P&L, Trial Balance, General Ledger and more — live from the general ledger, for any period, downloadable as CSV, Excel or PDF."
+        title="Books"
+        description="Balance sheet, profit and loss, trial balance and the general ledger, for any period. Download any of them as CSV, Excel or PDF."
       />
+      <ChecksPanel />
       <AccountingSuite />
     </div>
   );

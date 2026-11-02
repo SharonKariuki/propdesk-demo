@@ -6,6 +6,7 @@
 import type { Building, BuildingDetail, TenantDetail, TenantListItem, Unit } from "@/lib/types";
 
 import { repos } from "../context";
+import { settlementOf } from "./deposits";
 import type {
   BankCreditRow, BuildingRow, CreditRow, ExpenseRow, ManualIncomeRow, MaintenanceRow,
   NotificationRow, PaymentRow, RefundRow, TenantRow, TransactionRow, UnitRow, UtilityChargeRow,
@@ -100,7 +101,7 @@ const KYC_DISPLAY = {
 } as const;
 const DOC_DISPLAY = {
   id_front: "ID — Front", id_back: "ID — Back", passport: "Passport",
-  kra_pin_certificate: "KRA PIN Certificate", lease: "Lease", other: "Other",
+  kra_pin_certificate: "KRA PIN Certificate", lease: "Signed lease", other: "Other",
 } as const;
 
 export function serializeTenant(t: TenantRow): TenantListItem {
@@ -189,6 +190,18 @@ export function serializeTenantDetail(t: TenantRow): TenantDetail {
     deposit_is_agreed: t.agreed_deposit !== null,
     deposit_refund_percentage: t.deposit_refund_percentage,
     deposit_refund_amount: decStr(t.deposit_refund_amount),
+    deposit_settlement: t.status === "moved_out"
+      ? (() => {
+          const s = settlementOf(t);
+          return {
+            held: s.held, applied_to_rent: s.appliedToRent, kept: s.kept, refund: s.refund,
+            deductions: (t.deposit_deductions ?? []).map((d) => ({ ...d })),
+            refund_status: t.refund_status, refund_method: t.refund_method,
+            refund_reference: t.refund_reference, refund_sent_on: t.refund_sent_on,
+          };
+        })()
+      : null,
+    current_balance: round2(balance),
     notice_date: t.notice_date,
     intended_move_out_date: t.intended_move_out_date,
     move_out_notes: t.move_out_notes,

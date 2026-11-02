@@ -145,7 +145,7 @@ export function VoidCreditModal({
       ) : (
         <Note>This credit hasn&apos;t been used, so voiding it simply removes it from the account.</Note>
       )}
-      <label htmlFor="void-credit-reason" className="mb-1 mt-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+      <label htmlFor="void-credit-reason" className="mb-1 mt-4 block text-[12px] font-medium text-ink-500">
         Reason *
       </label>
       <textarea id="void-credit-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} />
@@ -199,7 +199,7 @@ export function CloseRefundModal({
           ? "Only void a refund if the money did not reach the tenant or came back. The credit becomes available again and the accounts get a reversing entry dated today."
           : "The refund was never sent, so nothing reached the accounts. The amount goes back to Credit on Account."}
       </Note>
-      <label htmlFor="close-refund-reason" className="mb-1 mt-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+      <label htmlFor="close-refund-reason" className="mb-1 mt-4 block text-[12px] font-medium text-ink-500">
         Reason *
       </label>
       <textarea id="close-refund-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} />

@@ -13,13 +13,9 @@ export function PageHeader({ eyebrow, title, description, actions, className }: 
   return (
     <div className={cn("mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className="min-w-0">
-        {eyebrow && (
-          <p className="eyebrow flex items-center gap-1.5">
-            <span className="inline-block h-[7px] w-[7px] rounded-full bg-gold" aria-hidden />
-            {eyebrow}
-          </p>
-        )}
-        <h1 className="mt-1.5 text-4xl font-semibold text-content">
+        {/* The area name is already in the sidebar, so the eyebrow is not repeated here. */}
+        {eyebrow && <span className="sr-only">{eyebrow}: </span>}
+        <h1 className="text-3xl font-semibold text-content">
           {title}
         </h1>
         {description && (

@@ -1,36 +1,43 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import AuthLayout from "@/components/AuthLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RequirePermission from "@/components/RequirePermission";
-import AccountingPage from "@/pages/AccountingPage";
-import ActivityPage from "@/pages/ActivityPage";
-import BuildingDetailPage from "@/pages/BuildingDetailPage";
-import BuildingsPage from "@/pages/BuildingsPage";
-import AddBuildingPage from "@/pages/AddBuildingPage";
 import DashboardPage from "@/pages/DashboardPage";
-import EditBuildingPage from "@/pages/EditBuildingPage";
-import ExpensesPage from "@/pages/ExpensesPage";
-import ManualIncomePage from "@/pages/ManualIncomePage";
 import LoginPage from "@/pages/LoginPage";
 import NotFoundPage from "@/pages/NotFoundPage";
-import NotificationsPage from "@/pages/NotificationsPage";
 import PasswordResetPage from "@/pages/PasswordResetPage";
 import PasswordResetConfirmPage from "@/pages/PasswordResetConfirmPage";
-import PaymentsPage from "@/pages/PaymentsPage";
-import ReconciliationPage from "@/pages/ReconciliationPage";
-import ReportsPage from "@/pages/ReportsPage";
-import SettingsPage from "@/pages/SettingsPage";
-import AddChargePage from "@/pages/AddChargePage";
-import AddCreditPage from "@/pages/AddCreditPage";
-import RefundCreditPage from "@/pages/RefundCreditPage";
-import TenantDetailPage from "@/pages/TenantDetailPage";
-import TenantsPage from "@/pages/TenantsPage";
-import UnitsPage from "@/pages/UnitsPage";
-import WaterReadingsPage from "@/pages/WaterReadingsPage";
+
+// Pages other than sign-in and Home load on first visit, keeping the first download small.
+const AccountingPage = lazy(() => import("@/pages/AccountingPage"));
+const ActivityPage = lazy(() => import("@/pages/ActivityPage"));
+const BuildingDetailPage = lazy(() => import("@/pages/BuildingDetailPage"));
+const BuildingsPage = lazy(() => import("@/pages/BuildingsPage"));
+const AddBuildingPage = lazy(() => import("@/pages/AddBuildingPage"));
+const DepositsPage = lazy(() => import("@/pages/DepositsPage"));
+const EditBuildingPage = lazy(() => import("@/pages/EditBuildingPage"));
+const ExpensesPage = lazy(() => import("@/pages/ExpensesPage"));
+const ManualIncomePage = lazy(() => import("@/pages/ManualIncomePage"));
+const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
+const PaymentsPage = lazy(() => import("@/pages/PaymentsPage"));
+const ReconciliationPage = lazy(() => import("@/pages/ReconciliationPage"));
+const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const ShortStayPage = lazy(() => import("@/pages/ShortStayPage"));
+const TaxPage = lazy(() => import("@/pages/TaxPage"));
+const AddChargePage = lazy(() => import("@/pages/AddChargePage"));
+const AddCreditPage = lazy(() => import("@/pages/AddCreditPage"));
+const RefundCreditPage = lazy(() => import("@/pages/RefundCreditPage"));
+const TenantDetailPage = lazy(() => import("@/pages/TenantDetailPage"));
+const TenantsPage = lazy(() => import("@/pages/TenantsPage"));
+const UnitsPage = lazy(() => import("@/pages/UnitsPage"));
+const WaterReadingsPage = lazy(() => import("@/pages/WaterReadingsPage"));
 
 export default function App() {
   return (
+    <Suspense fallback={<div className="p-8 text-[13px] text-content-muted" role="status">Loading…</div>}>
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<LoginPage />} />
@@ -50,6 +57,9 @@ export default function App() {
         <Route path="/buildings/:id" element={<RequirePermission permission="buildings.view"><BuildingDetailPage /></RequirePermission>} />
         <Route path="/buildings/:id/edit" element={<RequirePermission permission="buildings.manage"><EditBuildingPage /></RequirePermission>} />
         <Route path="/units" element={<RequirePermission permission="buildings.view"><UnitsPage /></RequirePermission>} />
+        <Route path="/short-stay" element={<RequirePermission permission="buildings.view"><ShortStayPage /></RequirePermission>} />
+        <Route path="/deposits" element={<RequirePermission permission="payments.view"><DepositsPage /></RequirePermission>} />
+        <Route path="/tax" element={<RequirePermission permission="accounting.view"><TaxPage /></RequirePermission>} />
         <Route path="/tenants" element={<RequirePermission permission="tenants.view"><TenantsPage /></RequirePermission>} />
         <Route path="/tenants/:id" element={<RequirePermission permission="tenants.view"><TenantDetailPage /></RequirePermission>} />
         <Route path="/tenants/:id/charges/new" element={<RequirePermission permission="charges.add"><AddChargePage /></RequirePermission>} />
@@ -71,5 +81,6 @@ export default function App() {
           NotFound, not get bounced to /login by ProtectedRoute. */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </Suspense>
   );
 }

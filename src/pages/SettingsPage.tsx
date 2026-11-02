@@ -188,7 +188,7 @@ export default function SettingsPage() {
             <p className="mb-4 text-sm font-semibold text-gray-800">Edit profile information</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-500">First name</label>
+                <label className="mb-1 block text-xs font-medium text-gray-500">First name</label>
                 <input
                   className={inputCls}
                   value={profileForm.first_name}
@@ -197,7 +197,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-500">Last name</label>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Last name</label>
                 <input
                   className={inputCls}
                   value={profileForm.last_name}
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-500">Email address</label>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Email address</label>
                 <input
                   type="email"
                   className={inputCls}
@@ -216,7 +216,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-500">Phone number</label>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Phone number</label>
                 <input
                   className={inputCls}
                   value={profileForm.phone}
@@ -294,7 +294,7 @@ export default function SettingsPage() {
                 { key: "confirm_password", label: "Confirm new password" },
               ].map(({ key, label }) => (
                 <div key={key}>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-500">{label}</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">{label}</label>
                   <input
                     type="password"
                     className={inputCls}
@@ -531,7 +531,7 @@ function RolesCard() {
 
       {manage && (
         <div className="mb-5">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Team</p>
+          <p className="mb-2 text-[12px] font-medium text-ink-500">Team</p>
           {team.isLoading ? <Skeleton className="h-24" /> : team.isError ? (
             <ErrorState title="The team could not be loaded." onRetry={() => void team.refetch()} />
           ) : (

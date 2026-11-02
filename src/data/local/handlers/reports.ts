@@ -8,9 +8,12 @@ import { repos } from "../context";
 import { badRequest, fileResponse, notFound, type LocalRequest, type Router } from "../http";
 import type { AccountRow, TenantRow } from "../schema";
 import {
-  buildLedger, currentBalance, isCurrent, occupantOf, unitOf,
+  balanceAtMonth, buildLedger, currentBalance, isCurrent, occupantOf, unitOf,
 } from "../services/billing";
-import { exportTable, type ExportColumn, type ExportSpec } from "../services/documents";
+import { logEvent } from "../services/audit";
+import { reconciliationChecks } from "../services/checks";
+import { etimsInvoices, etimsSummary, retryEtims } from "../services/etims";
+import { exportTable, pdfBlob, xlsxBlob, type ExportColumn, type ExportSpec } from "../services/documents";
 import {
   buildJournal, chart, inScope, isDebitNormal, monthRange, profitAndLoss, signed, SOURCE_LABELS,
   totalsByAccount, type JournalEntry,
@@ -31,6 +34,182 @@ const STATUS_DISPLAY: Record<TenantRow["status"], string> = {
 };
 const SOURCE_DISPLAY: Record<string, string> = { mpesa: "M-Pesa", bank: "Bank Transfer", cash: "Cash", cheque: "Cheque" };
 const TYPE_DISPLAY: Record<string, string> = { rent: "Rent", late_fee: "Late fee", deposit: "Deposit", other: "Other income" };
+
+// ─── Monthly management report ───────────────────────────────────────────────
+/**
+ * One page for directors: what was billed and collected, what is overdue and
+ * how old it is, occupancy, deposits, income against expenses, by property,
+ * each compared with the month before. A few sentences say what moved.
+ */
+function monthlyReport(year: number, month: number) {
+  const r = repos();
+  const key = monthKey(year, month);
+  const isCurrentMonth = key === currentKey();
+  const end = isCurrentMonth ? todayIso() : monthRange(year, month).end;
+  const rental = r.buildings.filter((b) => b.property_type === "rental");
+  const lettable = r.units.filter((u) => !u.combined_into && rental.some((b) => b.id === u.building));
+  const buildingOf = (tenantId: number) => {
+    const t = r.tenants.get(tenantId);
+    const u = t ? r.units.get(t.unit) : undefined;
+    return u?.building ?? 0;
+  };
+  const endOf = (k: number) => { const { year: y, month: m } = fromMonthKey(k); return k === currentKey() ? todayIso() : monthRange(y, m).end; };
+  const occupiedAt = (k: number, buildingId?: number) => {
+    const at = endOf(k);
+    const ids = new Set(r.tenants
+      .filter((t) => t.move_in_date <= at && (!t.move_out_date || t.move_out_date > at))
+      .map((t) => t.unit));
+    return lettable.filter((u) => ids.has(u.id) && (!buildingId || u.building === buildingId)).length;
+  };
+  const expectedIn = (k: number, buildingId?: number) => {
+    const { year: y, month: m } = fromMonthKey(k);
+    const inB = (tid: number) => !buildingId || buildingOf(tid) === buildingId;
+    return round2(
+      r.charges.filter((c) => c.period_year === y && c.period_month === m && !c.is_opening && inB(c.tenant))
+        .reduce((s, c) => s + c.expected_rent + c.expected_vat - c.waived_amount, 0)
+      + r.utilityCharges.filter((u) => u.period_year === y && u.period_month === m && inB(u.tenant)).reduce((s, u) => s + u.amount, 0),
+    );
+  };
+  const collectedIn = (k: number, buildingId?: number, upToDay?: number) => round2(r.payments
+    .filter((p) => !p.voided_at && p.payment_type !== "deposit" && keyOfIso(p.payment_date) === k
+      && (!buildingId || buildingOf(p.tenant) === buildingId)
+      && (!upToDay || Number(p.payment_date.slice(8, 10)) <= upToDay))
+    .reduce((s, p) => s + p.amount, 0));
+  const depositsAt = (k: number) => {
+    const at = endOf(k);
+    return round2(r.tenants.filter((t) => t.move_in_date <= at && (!t.move_out_date || t.move_out_date > at)).reduce((s, t) => s + t.deposit_paid, 0));
+  };
+
+  // Arrears and their age, as at the end of the month (or today).
+  const buckets = ["0_30", "31_60", "61_90", "90_plus"] as const;
+  const aging = new Map<number, Record<(typeof buckets)[number], number>>();
+  const overdueTenants: { tenant_id: number; tenant: string; unit: string; building: string; total: number; oldest: string }[] = [];
+  for (const t of r.tenants.all()) {
+    const owing = owingByPeriod(t.id).filter((o) => o.key <= key);
+    if (!owing.length) continue;
+    const b = buildingOf(t.id);
+    const row = aging.get(b) ?? { "0_30": 0, "31_60": 0, "61_90": 0, "90_plus": 0 };
+    for (const o of owing) {
+      const { year: y, month: m } = fromMonthKey(o.key);
+      const age = daysBetween(isoDate(y, m, 1), end);
+      const k = age <= 30 ? "0_30" : age <= 60 ? "31_60" : age <= 90 ? "61_90" : "90_plus";
+      row[k] = round2(row[k] + o.owing);
+    }
+    aging.set(b, row);
+    const total = round2(owing.reduce((s, o) => s + o.owing, 0));
+    // Early in a running month, rent for this month alone is not late yet.
+    const onlyThisMonth = owing.every((o) => o.key === key);
+    if (isCurrentMonth && onlyThisMonth && Number(end.slice(8, 10)) <= t.due_day) continue;
+    if (total > 0) overdueTenants.push({ tenant_id: t.id, tenant: fullName(t), unit: tenantLabels(t.id).unit_label, building: r.buildings.get(b)?.name.split(" - ")[0] ?? "", total, oldest: owing[0].label });
+  }
+  overdueTenants.sort((a, z) => z.total - a.total);
+  const arrearsTotal = round2(overdueTenants.reduce((s, x) => s + x.total, 0));
+  const arrearsPrev = round2(r.tenants.all().reduce((s, t) => s + Math.max(0, balanceAtMonth(t.id, key - 1)), 0));
+
+  const pl = profitAndLoss(monthRange(year, month));
+  const plPrev = (() => { const p = fromMonthKey(key - 1); return profitAndLoss(monthRange(p.year, p.month)); })();
+  const expected = expectedIn(key);
+  const collected = collectedIn(key);
+  const dayCut = isCurrentMonth ? Number(todayIso().slice(8, 10)) : undefined;
+  const prevExpected = expectedIn(key - 1);
+  const prevCollected = collectedIn(key - 1, undefined, dayCut);
+  const occupied = occupiedAt(key);
+  const prevOccupied = occupiedAt(key - 1);
+  const rate = expected > 0 ? Math.round((collected / expected) * 1000) / 10 : 0;
+  const prevRate = prevExpected > 0 ? Math.round((prevCollected / prevExpected) * 1000) / 10 : 0;
+
+  const properties = rental.map((b) => {
+    const units = lettable.filter((u) => u.building === b.id).length;
+    const bp = profitAndLoss({ ...monthRange(year, month), building: b.id });
+    const ag = aging.get(b.id);
+    const arrears = ag ? round2(buckets.reduce((s, k) => s + ag[k], 0)) : 0;
+    const exp = expectedIn(key, b.id);
+    const col = collectedIn(key, b.id);
+    return {
+      id: b.id, name: b.name.split(" - ")[0], units, occupied: occupiedAt(key, b.id),
+      expected: exp, collected: col, collection_rate: exp > 0 ? Math.round((col / exp) * 100) : 0,
+      arrears, income: bp.totalIncome, expenses: bp.totalExpenses, net: bp.net,
+    };
+  });
+  const agingRows = rental.map((b) => ({ building: b.name.split(" - ")[0], ...(aging.get(b.id) ?? { "0_30": 0, "31_60": 0, "61_90": 0, "90_plus": 0 }) }));
+
+  const trend = [];
+  for (let k = key - 11; k <= key; k++) {
+    const { year: y, month: m } = fromMonthKey(k);
+    trend.push({ label: `${monthShort(m)} ${String(y).slice(2)}`, expected: expectedIn(k), collected: collectedIn(k), current: k === key });
+  }
+
+  // What moved, in plain words.
+  const notes: string[] = [];
+  const monthName = `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][month - 1]}`;
+  if (isCurrentMonth) notes.push(`${monthName} is in progress: figures run to ${end.slice(8, 10).replace(/^0/, "")} ${monthName}, and comparisons are with the same day last month.`);
+  const diff = Math.round((rate - prevRate) * 10) / 10;
+  notes.push(`KES ${collected.toLocaleString()} collected of KES ${expected.toLocaleString()} billed (${rate}%), ${diff === 0 ? "level with" : `${Math.abs(diff)} points ${diff > 0 ? "ahead of" : "behind"}`} last month.`);
+  const worst = [...properties].filter((p) => p.expected > 0).sort((a, z) => a.collection_rate - z.collection_rate)[0];
+  if (worst && properties.length > 1) notes.push(`${worst.name} has the lowest collection rate at ${worst.collection_rate}%.`);
+  const old = agingRows.reduce((s, x) => s + x["61_90"] + x["90_plus"], 0);
+  if (arrearsTotal > 0) notes.push(`Arrears stand at KES ${arrearsTotal.toLocaleString()}; KES ${round2(old).toLocaleString()} of it is over 60 days old.`);
+  if (occupied !== prevOccupied) notes.push(`Occupancy ${occupied > prevOccupied ? "rose" : "fell"} from ${prevOccupied} to ${occupied} of ${lettable.length} units.`);
+
+  return {
+    year, month, as_of: end, is_current_month: isCurrentMonth,
+    headline: {
+      expected, collected, collection_rate: rate,
+      prev_expected: prevExpected, prev_collected: prevCollected, prev_collection_rate: prevRate,
+      arrears: arrearsTotal, prev_arrears: arrearsPrev,
+      occupied, prev_occupied: prevOccupied, units: lettable.length,
+      vacant: lettable.length - occupied,
+      deposits_held: depositsAt(key), prev_deposits_held: depositsAt(key - 1),
+      income: pl.totalIncome, expenses: pl.totalExpenses, net: pl.net,
+      prev_income: plPrev.totalIncome, prev_expenses: plPrev.totalExpenses, prev_net: plPrev.net,
+    },
+    trend, aging: agingRows, properties, top_overdue: overdueTenants.slice(0, 10), notes,
+  };
+}
+
+function monthlyReportFile(report: ReturnType<typeof monthlyReport>, format: string) {
+  const h = report.headline;
+  const label = `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][report.month - 1]} ${report.year}`;
+  const kes = (n: number) => round2(n).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const headRows: [string, number | string, number | string][] = [
+    ["Rent and charges billed", h.expected, h.prev_expected],
+    ["Collected", h.collected, h.prev_collected],
+    ["Collection rate (%)", h.collection_rate, h.prev_collection_rate],
+    ["Arrears", h.arrears, h.prev_arrears],
+    ["Units let", `${h.occupied} of ${h.units}`, `${h.prev_occupied} of ${h.units}`],
+    ["Deposits held", h.deposits_held, h.prev_deposits_held],
+    ["Income", h.income, h.prev_income],
+    ["Expenses", h.expenses, h.prev_expenses],
+    ["Net income", h.net, h.prev_net],
+  ];
+  const propRows = report.properties.map((p) => [p.name, `${p.occupied}/${p.units}`, p.expected, p.collected, `${p.collection_rate}%`, p.arrears, p.expenses, p.net]);
+  const ageRows = report.aging.map((a) => [a.building, a["0_30"], a["31_60"], a["61_90"], a["90_plus"], round2(a["0_30"] + a["31_60"] + a["61_90"] + a["90_plus"])]);
+  const topRows = report.top_overdue.map((t) => [t.tenant, `${t.unit} · ${t.building}`, t.oldest, t.total]);
+  if (format === "xlsx") {
+    const rows: unknown[][] = [
+      [`Monthly management report, ${label}`], [`As at ${report.as_of}. Mawingu Properties (demo data).`], [],
+      ["Summary"], ...report.notes.map((n) => [n]), [],
+      ["Measure", label, "Previous month"], ...headRows, [],
+      ["By property"], ["Property", "Units let", "Billed", "Collected", "Rate", "Arrears", "Expenses", "Net income"], ...propRows, [],
+      ["Arrears by age"], ["Property", "0-30 days", "31-60 days", "61-90 days", "Over 90 days", "Total"], ...ageRows, [],
+      ["Largest arrears"], ["Tenant", "Unit", "Owing since", "Total"], ...topRows,
+    ];
+    return fileResponse(xlsxBlob("Monthly report", rows), `Monthly-report-${report.year}-${String(report.month).padStart(2, "0")}.xlsx`);
+  }
+  const blob = pdfBlob({
+    title: `Monthly management report: ${label}`,
+    subtitle: [`Mawingu Properties (demo data)`, `As at ${report.as_of}`],
+    sections: [
+      { heading: "Summary", pairs: report.notes.map((n, i) => [String(i + 1), n] as [string, string]) },
+      { heading: "Headline figures (KES)", table: { columns: [{ label: "Measure" }, { label: label, align: "right" }, { label: "Previous month", align: "right" }], rows: headRows.map(([a, b, c]) => [a, typeof b === "number" ? kes(b) : b, typeof c === "number" ? kes(c) : c]) } },
+      { heading: "By property (KES)", table: { columns: [{ label: "Property" }, { label: "Let", align: "right" }, { label: "Billed", align: "right" }, { label: "Collected", align: "right" }, { label: "Rate", align: "right" }, { label: "Arrears", align: "right" }, { label: "Expenses", align: "right" }, { label: "Net", align: "right" }], rows: propRows.map((r) => r.map((v) => typeof v === "number" ? kes(v) : String(v))) } },
+      { heading: "Arrears by age (KES)", table: { columns: [{ label: "Property" }, { label: "0-30", align: "right" }, { label: "31-60", align: "right" }, { label: "61-90", align: "right" }, { label: "90+", align: "right" }, { label: "Total", align: "right" }], rows: ageRows.map((r) => r.map((v) => typeof v === "number" ? kes(v) : String(v))) } },
+      { heading: "Largest arrears", table: { columns: [{ label: "Tenant" }, { label: "Unit" }, { label: "Owing since" }, { label: "KES", align: "right" }], rows: topRows.map((r) => r.map((v) => typeof v === "number" ? kes(v) : String(v))) } },
+    ],
+    footnote: "Generated from synthetic demo data. Collections compare with the same day of the previous month while a month is in progress.",
+  });
+  return fileResponse(blob, `Monthly-report-${report.year}-${String(report.month).padStart(2, "0")}.pdf`);
+}
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function buildingParam(req: LocalRequest) {
@@ -708,6 +887,28 @@ export function registerReports(router: Router) {
       expense_breakdown: pl.expenses.map((x) => ({ category: x.account.name, amount: x.amount })),
       net_profit: pl.net,
     };
+  });
+
+  router.get("/accounting/checks/", () => reconciliationChecks());
+
+  router.get("/reports/monthly/", (req) => {
+    const { month, year } = monthParams(req);
+    const report = monthlyReport(year, month);
+    const format = req.query.get("format") ?? "";
+    return format === "pdf" || format === "xlsx" ? monthlyReportFile(report, format) : report;
+  });
+
+  router.get("/tax/etims/", () => ({ summary: etimsSummary(), invoices: etimsInvoices() }));
+
+  router.post("/tax/etims/:id/retry/", (req) => {
+    const result = retryEtims(String(req.params.id));
+    if (!result) throw notFound("Invoice not found.");
+    if (result.status === "failed") throw badRequest(result.error);
+    logEvent(req, {
+      action: "etims_retry", summary: `Resent ${result.description} for ${result.tenant_name} to eTIMS (simulated): ${result.kra_invoice_no}`,
+      objectType: "etims", objectLabel: result.id, financial: true,
+    });
+    return result;
   });
 
   router.get("/reports/trial-balance/", (req) => {

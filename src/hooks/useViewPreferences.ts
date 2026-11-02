@@ -21,6 +21,9 @@ const DEFAULTS: ViewPreferences = {
   reports: true,
   activity: true,
   settings: true,
+  shortstay: true,
+  deposits: true,
+  tax: true,
 };
 
 function read(): ViewPreferences {

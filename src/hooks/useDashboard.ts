@@ -14,6 +14,18 @@ export interface DashboardKPIs {
   collection_received: number;
   collection_percentage: number;
   last_month_received: number;
+  /** Owed and past its due day. */
+  overdue_total: number;
+  overdue_count: number;
+  /** This month's rent, still unpaid but not yet due. */
+  due_not_late_total: number;
+  due_not_late_count: number;
+  /** Money tenants have paid ahead (credit balances). */
+  tenant_credits_total: number;
+  /** Cash received last month up to the same day of the month. */
+  last_month_to_date_received: number;
+  due_day: number;
+  deposits_held: number;
 }
 
 export interface IncomeTrendPoint {

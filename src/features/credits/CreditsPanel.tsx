@@ -223,7 +223,7 @@ export function CreditsPanel({
 
       {refunds.length > 0 && (
         <div className="border-t border-hairline">
-          <p className="px-5 pb-1 pt-4 text-xs font-medium uppercase tracking-[0.14em] text-content-muted">Refunds</p>
+          <p className="px-5 pb-1 pt-4 text-xs font-medium text-content-muted">Refunds</p>
           <Table minWidth={760}>
             <THead>
               <TR>

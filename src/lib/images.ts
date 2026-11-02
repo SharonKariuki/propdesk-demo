@@ -1,22 +1,8 @@
 /**
- * Deterministic property imagery from Unsplash source.
- * Given a seed (building name/id), returns the same image every time.
+ * Property pictures drawn locally as SVG, one per building and the same every
+ * time. The original pulled photos from Unsplash, which broke offline and on
+ * restricted office networks and showed broken-image text in the demo.
  */
-const PROPERTY_IMAGES = [
-  "photo-1570129477492-45c003edd2be", // modern apartment
-  "photo-1512917774080-9991f1c4c750", // villa
-  "photo-1568605114967-8130f3a36994", // townhouse
-  "photo-1600585154340-be6161a56a0c", // contemporary home
-  "photo-1564013799919-ab600027ffc6", // cozy interior-ext
-  "photo-1600596542815-ffad4c1539a9", // brick facade
-  "photo-1600607687939-ce8a6c25118c", // airy interior
-  "photo-1613553474179-e1eda3ea5734", // apartment block
-  "photo-1580587771525-78b9dba3b914", // glass facade
-  "photo-1512917774080-9991f1c4c750", // stone villa
-  "photo-1582268611958-ebfd161ef9cf", // urban apartments
-  "photo-1486406146926-c627a92ad1ab", // residential row
-];
-
 function hash(str: string): number {
   let h = 0;
   for (let i = 0; i < str.length; i++) {
@@ -25,10 +11,39 @@ function hash(str: string): number {
   return Math.abs(h);
 }
 
+// Muted facades: stone, sage, clay, slate, sand. Sky stays pale.
+const FACADES = [
+  ["#d9d4c7", "#b9b19f"], ["#c9d3c5", "#9fb09a"], ["#dcc3b0", "#b9937a"], ["#c5ccd4", "#98a3ae"], ["#e1d6bd", "#bfae88"],
+];
+
 export function propertyImage(seed: string | number, size: "sm" | "md" | "lg" = "md") {
-  const w = size === "sm" ? 400 : size === "md" ? 800 : 1400;
-  const id = PROPERTY_IMAGES[hash(String(seed)) % PROPERTY_IMAGES.length];
-  return `https://images.unsplash.com/${id}?auto=format&fit=crop&q=80&w=${w}`;
+  void size;
+  const h = hash(String(seed));
+  const [face, shade] = FACADES[h % FACADES.length];
+  const floors = 3 + (h % 4);
+  const cols = 4 + ((h >> 3) % 3);
+  const W = 800;
+  const H = 500;
+  const bw = 120 + cols * 70;
+  const bx = (W - bw) / 2 - 40;
+  const fh = 58;
+  const top = H - 70 - floors * fh;
+  let windows = "";
+  for (let f = 0; f < floors; f++) {
+    for (let c = 0; c < cols; c++) {
+      const x = bx + 40 + c * 70;
+      const y = top + 16 + f * fh;
+      const lit = (h >> (f + c)) % 5 === 0;
+      windows += `<rect x="${x}" y="${y}" width="40" height="30" rx="2" fill="${lit ? "#f2e3b8" : "#5f6b66"}" opacity="${lit ? 0.95 : 0.55}"/>`;
+    }
+  }
+  const side = `<rect x="${bx + bw}" y="${top + 30}" width="90" height="${floors * fh - 30 + 0}" fill="${shade}"/>`;
+  const trees = [0, 1, 2].map((i) => {
+    const tx = 60 + i * 300 + (h % 40);
+    return `<circle cx="${tx}" cy="${H - 92}" r="${26 + ((h >> i) % 10)}" fill="#8fa38a" opacity="0.85"/><rect x="${tx - 3}" y="${H - 80}" width="6" height="16" fill="#6b5d4a"/>`;
+  }).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice"><rect width="${W}" height="${H}" fill="#e9eeec"/><rect y="${H - 70}" width="${W}" height="70" fill="#cfd5cc"/>${side}<rect x="${bx}" y="${top}" width="${bw}" height="${floors * fh + 0}" fill="${face}"/><rect x="${bx - 8}" y="${top - 10}" width="${bw + 16}" height="12" fill="${shade}"/>${windows}<rect x="${bx + bw / 2 - 22}" y="${H - 70 - 46}" width="44" height="46" fill="#4d5752"/>${trees}</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 // Avatars are a quiet grey circle with ink initials (design system: --expected / --fg).

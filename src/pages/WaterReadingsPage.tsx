@@ -131,7 +131,7 @@ export default function WaterReadingsPage() {
       <Card variant="glass" padding="md">
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block sm:col-span-2">
-            <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Unit / Tenant *</span>
+            <span className="mb-1 block text-[12px] font-medium text-ink-500">Unit / Tenant *</span>
             <select {...form.register("tenant")} className={inputCls}>
               <option value="">Select a unit…</option>
               {tenants?.map((t) => (
@@ -144,7 +144,7 @@ export default function WaterReadingsPage() {
           </label>
           <div className="block">
             <label className="block">
-              <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Previous reading</span>
+              <span className="mb-1 block text-[12px] font-medium text-ink-500">Previous reading</span>
               <input
                 {...form.register("opening_reading")}
                 className={inputCls}
@@ -166,14 +166,14 @@ export default function WaterReadingsPage() {
             </label>
           </div>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Current reading *</span>
+            <span className="mb-1 block text-[12px] font-medium text-ink-500">Current reading *</span>
             <input {...form.register("closing_reading")} className={inputCls} placeholder="e.g. 1209" inputMode="decimal" />
             {form.formState.errors.closing_reading && (
               <p className="mt-1 text-[11px] text-status-unpaid">{form.formState.errors.closing_reading.message}</p>
             )}
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Month *</span>
+            <span className="mb-1 block text-[12px] font-medium text-ink-500">Month *</span>
             <select {...form.register("period_month")} className={inputCls}>
               {Array.from({ length: 12 }, (_, i) => (
                 <option key={i + 1} value={i + 1}>
@@ -183,7 +183,7 @@ export default function WaterReadingsPage() {
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Year *</span>
+            <span className="mb-1 block text-[12px] font-medium text-ink-500">Year *</span>
             <input type="number" {...form.register("period_year")} className={inputCls} />
           </label>
           <div className="flex items-end sm:col-span-2 lg:col-span-2">

@@ -18,9 +18,15 @@ import { currentBalance, ensureBilling, vatOn } from "./services/billing";
 import { saveFile } from "./services/files";
 import { recordPayment } from "./services/payments";
 import {
-  currentKey, daysInMonth, fromMonthKey, isoDate, keyOfIso, monthKey, monthLabel, round2, sha256,
+  addDays, currentKey, daysInMonth, fromMonthKey, isoDate, keyOfIso, monthKey, monthLabel, round2, sha256,
   todayIso,
 } from "./util";
+
+/** Seeded history must never sit in the future, whatever time of day the demo is first opened. */
+const notAfterNow = (at: string) => {
+  const now = new Date(Date.now() - 60_000).toISOString();
+  return at > now ? now : at;
+};
 
 // ─── deterministic randomness ────────────────────────────────────────────────
 function mulberry32(seed: number) {
@@ -95,6 +101,7 @@ const ACCOUNTS: [string, string, AccountRow["account_type"], string][] = [
   ["2010", "Accounts Payable (Suppliers/Contractors)", "liability", "2000"],
   ["2020", "Accrued Expenses", "liability", "2000"],
   ["2100", "Tenant Security Deposits Held", "liability", "2000"],
+  ["2150", "Deposit Refunds Payable", "liability", "2000"],
   ["2500", "Mortgages Payable / Bank Loans", "liability", "2000"],
   ["2600", "VAT Payable", "liability", "2000"],
   ["2700", "PAYE Payable", "liability", "2000"],
@@ -107,6 +114,7 @@ const ACCOUNTS: [string, string, AccountRow["account_type"], string][] = [
   ["4150", "Service Charge / Utilities Reimbursed by Tenants", "income", "4000"],
   ["4200", "Late Payment Fees / Penalties", "income", "4000"],
   ["4250", "Parking Fees", "income", "4000"],
+  ["4260", "Deposit Deductions Kept (Damage & Cleaning)", "income", "4000"],
   ["4300", "Farm / Agricultural Income", "income", "4000"],
   ["5100", "Property Management Fees", "expense", "5000"],
   ["5200", "Repairs & Maintenance", "expense", "5000"],
@@ -312,7 +320,9 @@ export async function generateSeed(target: LocalDatabase) {
       emergency_contact: business ? "" : `${pick(FIRST)} ${pick(LAST)}`,
       emergency_phone: business ? "" : `+2547001${String(between(10000, 99999))}`,
       unit: unit.id, monthly_rent: rent, deposit_paid: round2(rent * (business ? 3 : 1)), agreed_deposit: null,
-      deposit_refund_percentage: 100, deposit_refund_amount: 0, due_day: 5, is_billable: true,
+      deposit_refund_percentage: 100, deposit_refund_amount: 0, deposit_deductions: [],
+      refund_status: "none", refund_method: "", refund_reference: "", refund_sent_on: null,
+      due_day: 5, is_billable: true,
       billing_frequency: "monthly", status: "active", move_in_date: moveIn, move_out_date: null,
       notice_date: null, intended_move_out_date: null, move_out_notes: "", notes: "",
       kyc_status: kyc, kyc_verified_at: kyc === "verified" ? `${moveIn}T09:30:00.000Z` : null,
@@ -345,11 +355,26 @@ export async function generateSeed(target: LocalDatabase) {
       const moveOut = isoDate(leave.year, leave.month, between(20, daysInMonth(leave.year, leave.month)));
       const former = makeTenant(unit, formerIn);
       const pct = chance(0.6) ? 100 : pick([50, 75, 0]);
+      // Deposit settlement: whatever is not refunded is itemised as deductions.
+      const kept = round2((former.deposit_paid * (100 - pct)) / 100);
+      const deductions = kept <= 0 ? [] : pct === 75
+        ? [{ kind: "damage" as const, label: "Repainting the living room", amount: kept }]
+        : [
+            { kind: "damage" as const, label: "Broken window and repainting", amount: round2(kept * 0.7) },
+            { kind: "cleaning" as const, label: "Deep clean after move-out", amount: round2(kept - round2(kept * 0.7)) },
+          ];
+      const refund = round2(former.deposit_paid - kept);
+      const sentOn = addDays(moveOut, 9);
+      const sent = refund > 0 && sentOn <= today;
       r.tenants.update(former.id, {
         status: "moved_out", move_out_date: moveOut, notice_date: isoDate(leave.year, leave.month, 1),
         intended_move_out_date: moveOut, deposit_refund_percentage: pct,
-        deposit_refund_amount: round2((former.deposit_paid * pct) / 100),
-        move_out_notes: pct < 100 ? "Part of the deposit kept for repainting and a broken window." : "Left in good order.",
+        deposit_refund_amount: refund, deposit_deductions: deductions,
+        refund_status: refund <= 0 ? "none" : sent ? "sent" : "pending",
+        refund_method: sent ? pick(["mpesa", "bank"] as const) : "",
+        refund_reference: sent ? `RF${moveOut.replace(/-/g, "").slice(2)}${former.id}` : "",
+        refund_sent_on: sent ? sentOn : null,
+        move_out_notes: pct < 100 ? "Part of the deposit kept for repairs, itemised in the settlement." : "Left in good order.",
       });
       const next = fromMonthKey(leaveKey + 1);
       nextMoveIn = isoDate(next.year, next.month, between(1, 10));
@@ -634,13 +659,25 @@ export async function generateSeed(target: LocalDatabase) {
     }
   }
 
+  // Signed leases for most current tenants, so the lease card has a copy to show.
+  // One sample file is shared to keep the browser database small.
+  const leaseFile = await saveFile(sampleDocument("Tenancy agreement — signed (sample)", "Mawingu Properties"));
+  const leaseHolders = r.tenants.filter((t) => t.status !== "moved_out");
+  leaseHolders.forEach((t, i) => {
+    if (i % 4 === 3) return; // every fourth tenant has no signed copy yet
+    r.documents.insert({
+      tenant: t.id, doc_type: "lease", file_id: leaseFile,
+      original_name: `Lease-${t.first_name}-${t.last_name}.pdf`.replace(/\s+/g, "-"), uploaded_at: t.created_at,
+    });
+  });
+
   // Message history (all simulated).
   const recentTenants = r.tenants.filter((t) => t.status !== "moved_out").slice(0, 60);
   for (let k = nowKey - 2; k <= nowKey; k++) {
     const { year, month } = fromMonthKey(k);
     if (k === nowKey && Number(today.slice(8, 10)) < 1) continue;
     for (const t of recentTenants.filter((_, i) => i % 6 === k % 6)) {
-      const at = `${isoDate(year, month, 1)}T08:00:00.000Z`;
+      const at = notAfterNow(`${isoDate(year, month, 1)}T08:00:00.000Z`);
       r.notifications.insert({
         tenant: t.id, channel: "sms", subject: "Rent reminder",
         body: `Dear ${t.first_name}, a reminder that rent of KES ${t.monthly_rent.toLocaleString()} is due on ${isoDate(year, month, 5)}. — Mawingu Properties.`,
@@ -650,7 +687,7 @@ export async function generateSeed(target: LocalDatabase) {
     }
   }
   for (const t of r.tenants.filter((t) => t.status === "active" && currentBalance(t.id) > t.monthly_rent).slice(0, 6)) {
-    const at = `${isoDate(Number(today.slice(0, 4)), Number(today.slice(5, 7)), Math.min(10, Number(today.slice(8, 10))))}T09:15:00.000Z`;
+    const at = notAfterNow(`${isoDate(Number(today.slice(0, 4)), Number(today.slice(5, 7)), Math.min(10, Number(today.slice(8, 10))))}T09:15:00.000Z`);
     r.notifications.insert({
       tenant: t.id, channel: t.email ? "both" : "sms", subject: "Outstanding balance",
       body: `Dear ${t.first_name}, our records show an outstanding balance of KES ${currentBalance(t.id).toLocaleString()}. Kindly settle it at your earliest convenience. — Mawingu Properties.`,
@@ -679,7 +716,7 @@ export async function generateSeed(target: LocalDatabase) {
       actor: viaBank ? null : accountant, source: viaBank ? "bank" : "web",
     });
   }
-  audit(`${today}T07:45:00.000Z`, { kind: "auth", action: "login", summary: "Signed in", type: "user", id: accountant, label: "accountant@mawingu.test", actor: accountant });
+  audit(notAfterNow(`${today}T07:45:00.000Z`), { kind: "auth", action: "login", summary: "Signed in", type: "user", id: accountant, label: "accountant@mawingu.test", actor: accountant });
 
   for (let i = 0; i < 6; i++) {
     r.loginAttempts.insert({

@@ -37,7 +37,7 @@ export function Field({
     : children;
   return (
     <div className={className}>
-      <label htmlFor={id} className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">{label}</label>
+      <label htmlFor={id} className="mb-1 block text-[12px] font-medium text-ink-500">{label}</label>
       {control}
       {error
         ? <p className="mt-1 text-[11px] text-status-unpaid">{error}</p>
@@ -63,6 +63,7 @@ const KYC_DOC_TYPES = [
   { value: "id_back", label: "ID — Back" },
   { value: "passport", label: "Passport" },
   { value: "kra_pin_certificate", label: "KRA PIN Certificate" },
+  { value: "lease", label: "Signed lease (not part of KYC)" },
 ] as const;
 
 export function KycPanel({ tenant }: { tenant: TenantDetail }) {
@@ -96,7 +97,7 @@ export function KycPanel({ tenant }: { tenant: TenantDetail }) {
   return (
     <div className="rounded-md border border-ink-100 p-4 dark:border-ink-700">
       <div className="mb-3 flex items-center justify-between">
-        <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-ink-500">
+        <p className="flex items-center gap-2 text-[12px] font-medium text-ink-500">
           <ShieldCheck className="h-3.5 w-3.5" /> KYC Verification
         </p>
         <KycBadge status={tenant.kyc_status} label={tenant.kyc_status_display} />

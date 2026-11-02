@@ -31,7 +31,7 @@ export function THead({ className, ...props }: HTMLAttributes<HTMLTableSectionEl
   return (
     <thead
       className={cn(
-        "border-b border-border font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-content-muted",
+        "border-b border-border text-[12px] font-medium text-content-muted",
         className
       )}
       {...props}

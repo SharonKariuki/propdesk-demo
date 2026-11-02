@@ -13,6 +13,7 @@
 import type { UnitStatus } from "@/lib/types";
 
 import { database, repos } from "../context";
+import { settlementOf } from "./deposits";
 import type { ChargeRow, TenantRow, UnitRow } from "../schema";
 import {
   currentKey, fromMonthKey, keyOfIso, monthKey, monthLabel, round2, VAT_RATE,
@@ -112,6 +113,12 @@ export function tenantMoney(tenantId: number, asOf?: string): TenantMoney {
   for (const c of r.credits.filter((c) => c.tenant === tenantId && creditCounts(c))) {
     if (asOf && c.credit_date > asOf) continue;
     add(credited, keyOfIso(c.credit_date), c.amount);
+  }
+  // Unpaid rent settled out of the deposit counts as a credit on the move-out month.
+  const tenant = r.tenants.get(tenantId);
+  if (tenant?.status === "moved_out" && tenant.move_out_date && (!asOf || tenant.move_out_date <= asOf)) {
+    const applied = settlementOf(tenant).appliedToRent;
+    if (applied > 0) add(credited, keyOfIso(tenant.move_out_date), applied);
   }
   const refunded = new Map<number, number>();
   for (const f of r.refunds.filter((f) => f.tenant === tenantId && f.status === "sent" && Boolean(f.sent_on))) {

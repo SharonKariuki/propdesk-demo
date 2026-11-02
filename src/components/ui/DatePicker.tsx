@@ -135,7 +135,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
         {label && (
           <label
             htmlFor={textId}
-            className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500"
+            className="mb-1 block text-[12px] font-medium text-ink-500"
           >
             {label}
           </label>

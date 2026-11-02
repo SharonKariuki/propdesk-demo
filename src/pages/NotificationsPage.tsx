@@ -280,7 +280,7 @@ export default function NotificationsPage() {
                   <p className={cn("mt-1 text-[11px]", active ? "text-canvas/70" : "text-ink-500")}>
                     {t.description}
                   </p>
-                  <p className={cn("mt-2 text-[10px] uppercase tracking-[0.14em]", active ? "text-canvas/50" : "text-ink-400")}>
+                  <p className={cn("mt-2 text-[11.5px]", active ? "text-canvas/50" : "text-ink-400")}>
                     {t.channel === "both" ? "SMS + Email" : t.channel.toUpperCase()}
                   </p>
                 </button>
@@ -296,7 +296,7 @@ export default function NotificationsPage() {
 
         {/* Audience */}
         <div className="mb-4">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Who should receive this?</p>
+          <p className="mb-2 text-[12px] font-medium text-ink-500">Who should receive this?</p>
           <div className="grid gap-2 sm:grid-cols-3">
             {AUDIENCE_OPTIONS.map((opt) => {
               const Icon = opt.icon;
@@ -329,7 +329,7 @@ export default function NotificationsPage() {
         {/* Tenant selector */}
         {audience === "tenant" && (
           <div className="mb-4">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+            <p className="mb-2 text-[12px] font-medium text-ink-500">
               Select tenants ({selectedTenantIds.length} selected)
             </p>
             {tenantsLoading ? (
@@ -384,7 +384,7 @@ export default function NotificationsPage() {
 
         {/* Channel */}
         <div className="mb-4">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">How to send?</p>
+          <p className="mb-2 text-[12px] font-medium text-ink-500">How to send?</p>
           <div className="flex flex-wrap gap-2">
             {CHANNEL_OPTIONS.map((opt) => {
               const Icon = opt.icon;
@@ -410,7 +410,7 @@ export default function NotificationsPage() {
         {/* Email subject */}
         {(channel === "email" || channel === "both") && (
           <div className="mb-4">
-            <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+            <label className="mb-1 block text-[12px] font-medium text-ink-500">
               Email subject line
             </label>
             <input
@@ -425,7 +425,7 @@ export default function NotificationsPage() {
         {/* Message body */}
         <div className="mb-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+            <label className="text-[12px] font-medium text-ink-500">
               Message body
             </label>
             <SmartInsertDropdown onInsert={insertAtCursor} />

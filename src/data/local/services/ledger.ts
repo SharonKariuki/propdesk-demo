@@ -19,7 +19,10 @@
 import { database, repos } from "../context";
 import type { AccountRow } from "../schema";
 import { fromMonthKey, isoDate, keyOfIso, monthKey, round2, todayIso } from "../util";
+import { settlementOf } from "./deposits";
 import { fullName } from "./serializers";
+
+export { settlementOf };
 
 export interface JournalLine {
   code: string;
@@ -52,6 +55,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   opening_deposit: "Opening deposit",
   opening_capital: "Opening capital",
   rent_charge: "Rent billed",
+  deposit_settlement: "Deposit settlement",
   deposit_refund: "Deposit refund",
   petty_cash_topup: "Petty cash top-up",
 };
@@ -128,12 +132,28 @@ export function buildJournal(): JournalEntry[] {
         lines: [dr("1030", opening, "Deposit bank (opening balance)"), cr("2100", opening, `Deposit held — ${tenantLabel(t.id)}`)],
       });
     }
-    if (t.status === "moved_out" && t.deposit_refund_amount > 0 && t.move_out_date) {
+    if (t.status === "moved_out" && t.move_out_date) {
+      // Deposit settlement: the whole deposit leaves 2100 on the move-out date.
+      const s = settlementOf(t);
+      const name = tenantLabel(t.id);
+      const building = tenantBuilding(t.id);
       push({
-        date: t.move_out_date, reference: `DEP-REF-${t.id}`, memo: `Deposit refunded — ${tenantLabel(t.id)}`,
-        source: "deposit_refund", kind: "normal", building: tenantBuilding(t.id),
-        lines: [dr("2100", t.deposit_refund_amount, `Deposit refunded — ${tenantLabel(t.id)}`), cr("1030", t.deposit_refund_amount, "Tenant Security Deposit Bank")],
+        date: t.move_out_date, reference: `DEP-SET-${t.id}`, memo: `Deposit settled — ${name}`,
+        source: "deposit_settlement", kind: "normal", building,
+        lines: [
+          dr("2100", s.held, `Deposit settled — ${name}`),
+          cr("1040", s.appliedToRent, `Deposit applied to unpaid rent — ${name}`),
+          cr("4260", s.kept, `Deposit deductions kept — ${name}`),
+          cr("2150", s.refund, `Deposit refund owed — ${name}`),
+        ],
       });
+      if (t.refund_status === "sent" && t.refund_sent_on && s.refund > 0) {
+        push({
+          date: t.refund_sent_on, reference: t.refund_reference || `DEP-REF-${t.id}`, memo: `Deposit refund sent — ${name}`,
+          source: "deposit_refund", kind: "normal", building,
+          lines: [dr("2150", s.refund, `Deposit refund paid — ${name}`), cr("1030", s.refund, "Tenant Security Deposit Bank")],
+        });
+      }
     }
   }
 

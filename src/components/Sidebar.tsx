@@ -7,7 +7,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useViewPreferences } from "@/hooks/useViewPreferences";
 import { cn } from "@/lib/cn";
 import { displayName } from "@/lib/displayName";
-import { NAV_ITEMS } from "@/lib/nav";
+import { NAV_GROUP_LABELS, NAV_ITEMS, type NavItem } from "@/lib/nav";
 import { ROLE_LABELS, hasPermission, type Role } from "@/lib/permissions";
 
 const STORAGE_KEY = "propdesk-sidebar-collapsed";
@@ -53,7 +53,18 @@ export default function Sidebar() {
     [prefs, user]
   );
 
-  const handle = displayName(user?.email?.split("@")[0] ?? "");
+  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ");
+  const handle = fullName || displayName(user?.email?.split("@")[0] ?? "");
+  // Consecutive items of one area sit under that area's label.
+  const groups = useMemo(() => {
+    const out: { group: NavItem["group"]; items: NavItem[] }[] = [];
+    for (const item of visibleItems) {
+      const last = out.at(-1);
+      if (last && last.group === item.group) last.items.push(item);
+      else out.push({ group: item.group, items: [item] });
+    }
+    return out;
+  }, [visibleItems]);
   const initials =
     (handle || "??")
       .split(/[._\- ]/)
@@ -64,7 +75,7 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden shrink-0 transition-[width] duration-300 ease-out md:sticky md:top-0 md:flex md:h-screen md:flex-col",
+        "hidden shrink-0 transition-[width] duration-300 ease-out print:!hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col",
         collapsed ? "md:w-[72px]" : "md:w-56"
       )}
     >
@@ -85,19 +96,26 @@ export default function Sidebar() {
         </button>
 
         {/* Primary nav — scrolls internally so the profile stays pinned */}
-        <nav className="sidebar-nav flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pt-1">
-          {visibleItems.map(({ to, label, icon: Icon }) => (
+        <nav aria-label="Main" className="sidebar-nav flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pt-1">
+          {groups.map(({ group, items }) => (
+            <div key={group} className="flex flex-col gap-0.5">
+              {NAV_GROUP_LABELS[group] && (
+                collapsed
+                  ? <div className="mx-auto my-1.5 h-px w-6 bg-border" aria-hidden />
+                  : <p className="px-3 pb-1 pt-3 text-[11.5px] font-medium text-content-muted">{NAV_GROUP_LABELS[group]}</p>
+              )}
+              {items.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               title={collapsed ? label : undefined}
               className={({ isActive }) =>
                 cn(
-                  "group relative flex items-center gap-3 rounded-md py-2.5 text-sm font-medium transition-all",
+                  "group relative flex items-center gap-3 rounded-md py-2 text-[13.5px] font-medium transition-colors",
                   collapsed ? "justify-center px-2" : "px-3",
                   isActive
-                    ? "bg-white/70 text-content shadow-[0_1px_3px_rgba(0,0,0,.06)] dark:bg-white/10"
-                    : "text-content-muted hover:bg-white/40 hover:text-content dark:hover:bg-white/5"
+                    ? "bg-surface-sunk text-content"
+                    : "text-content-secondary hover:bg-hover hover:text-content"
                 )
               }
             >
@@ -123,6 +141,8 @@ export default function Sidebar() {
               )}
             </NavLink>
           ))}
+            </div>
+          ))}
         </nav>
 
         {/* Profile + logout — pinned to the bottom */}
@@ -141,7 +161,7 @@ export default function Sidebar() {
               <p className="truncate text-sm font-semibold text-content">
                 {handle || "User"}
               </p>
-              <p className="truncate text-[10px] uppercase tracking-[0.14em] text-content-muted">
+              <p className="truncate text-[11.5px] text-content-muted">
                 {user?.role === "owner" ? "Admin" : ROLE_LABELS[(user?.role ?? "viewer") as Role] ?? "Member"}
               </p>
             </div>

@@ -177,6 +177,10 @@ export interface TenantDetail extends TenantListItem {
   deposit_is_agreed: boolean;
   deposit_refund_percentage: number;
   deposit_refund_amount: string;
+  /** How the deposit was split at move-out; null while the tenancy is current. */
+  deposit_settlement: DepositSettlement | null;
+  /** Signed balance: positive = owes, negative = credit. */
+  current_balance: number;
   due_day: number;
   notice_date: string | null;
   intended_move_out_date: string | null;
@@ -272,4 +276,26 @@ export interface StoredUser {
   first_name: string;
   last_name: string;
   [key: string]: unknown;
+}
+
+export type DepositDeductionKind = "unpaid_rent" | "damage" | "cleaning" | "utilities" | "other";
+
+export interface DepositDeduction {
+  kind: DepositDeductionKind;
+  label: string;
+  amount: number;
+}
+
+export interface DepositSettlement {
+  held: number;
+  /** Deducted for unpaid rent and credited to the tenant's account. */
+  applied_to_rent: number;
+  /** Deducted for damage, cleaning, utilities or other reasons. */
+  kept: number;
+  refund: number;
+  deductions: DepositDeduction[];
+  refund_status: "none" | "pending" | "sent";
+  refund_method: "mpesa" | "bank" | "cheque" | "";
+  refund_reference: string;
+  refund_sent_on: string | null;
 }

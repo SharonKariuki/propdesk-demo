@@ -365,3 +365,93 @@ describe("persistence", () => {
     expect(buildings.some((b) => b.name === "Vitest Villas")).toBe(false);
   });
 });
+
+describe("deposit settlement", () => {
+  type Detail = { id: number; deposit_paid: string; current_balance: number; status: string; deposit_settlement: null | { refund: number; applied_to_rent: number; kept: number; refund_status: string } };
+  type Checks = { all_passed: boolean; checks: { key: string; passed: boolean; difference: number }[] };
+
+  it("starts with every reconciliation check passing", async () => {
+    const res = await ok<Checks>("GET", "/accounting/checks/");
+    expect(res.checks.filter((c) => !c.passed)).toEqual([]);
+  });
+
+  it("applies unpaid rent from the deposit, refunds the rest, and keeps the books tied", async () => {
+    const list = await ok<{ id: number; balance: string; status: string }[]>("GET", "/tenants/");
+    let target: Detail | undefined;
+    for (const t of list.filter((x) => x.status === "active" && num(x.balance) > 0)) {
+      const d = await ok<Detail>("GET", `/tenants/${t.id}/`);
+      if (num(d.deposit_paid) > num(t.balance)) { target = d; break; }
+    }
+    expect(target).toBeDefined();
+    const deposit = num(target!.deposit_paid);
+    const owed = target!.current_balance;
+    const cleaning = 500;
+    const settled = await ok<Detail>("POST", `/tenants/${target!.id}/move-out/`, {
+      move_out_date: iso,
+      deductions: [{ kind: "unpaid_rent", amount: owed }, { kind: "cleaning", label: "Deep clean", amount: cleaning }],
+      refund_amount: deposit - owed - cleaning,
+    });
+    expect(settled.status).toBe("moved_out");
+    expect(settled.current_balance).toBeCloseTo(0, 2);
+    expect(settled.deposit_settlement!.refund).toBeCloseTo(deposit - owed - cleaning, 2);
+    expect(settled.deposit_settlement!.refund_status).toBe("pending");
+    expect((await ok<Checks>("GET", "/accounting/checks/")).all_passed).toBe(true);
+
+    const sent = await ok<Detail>("POST", `/tenants/${target!.id}/deposit-refund/`, { method: "mpesa", reference: "RFTEST01", sent_on: iso });
+    expect(sent.deposit_settlement!.refund_status).toBe("sent");
+    expect((await ok<Checks>("GET", "/accounting/checks/")).all_passed).toBe(true);
+    const again = await call("POST", `/tenants/${target!.id}/deposit-refund/`, { method: "mpesa", reference: "RFTEST02" });
+    expect(again.status).toBe(400);
+    const pdf = await call("GET", `/tenants/${target!.id}/settlement-pdf/`);
+    expect(pdf.status).toBe(200);
+  });
+
+  it("refuses a settlement that does not add up to the deposit", async () => {
+    const list = await ok<{ id: number; status: string }[]>("GET", "/tenants/");
+    const t = list.find((x) => x.status === "active")!;
+    const d = await ok<Detail>("GET", `/tenants/${t.id}/`);
+    const res = await call<Record<string, string[]>>("POST", `/tenants/${t.id}/move-out/`, {
+      move_out_date: iso, deductions: [{ kind: "damage", amount: 100 }], refund_amount: num(d.deposit_paid) - 500,
+    });
+    expect(res.status).toBe(400);
+    expect(res.data.refund_amount?.[0]).toMatch(/not explained/);
+  });
+});
+
+describe("management report, deposits register, eTIMS", () => {
+  it("builds the monthly report and exports it as PDF and Excel", async () => {
+    type R = { headline: { expected: number; collected: number; units: number; occupied: number }; trend: unknown[]; properties: { name: string }[]; notes: string[] };
+    const r = await ok<R>("GET", "/reports/monthly/");
+    expect(r.trend).toHaveLength(12);
+    expect(r.properties.length).toBeGreaterThan(0);
+    expect(r.headline.occupied).toBeLessThanOrEqual(r.headline.units);
+    expect(r.notes.length).toBeGreaterThan(0);
+    for (const format of ["pdf", "xlsx"]) {
+      const file = await call("GET", `/reports/monthly/?format=${format}`);
+      expect(file.status).toBe(200);
+    }
+  });
+
+  it("lists deposits held that agree with the deposits-held check", async () => {
+    type D = { totals: { held: number }; held: unknown[]; settled: unknown[] };
+    const d = await ok<D>("GET", "/deposits/");
+    const checks = await ok<{ checks: { key: string; ledger: number }[] }>("GET", "/accounting/checks/");
+    expect(d.totals.held).toBeCloseTo(checks.checks.find((c) => c.key === "deposits")!.ledger, 2);
+    expect(d.settled.length).toBeGreaterThan(0);
+  });
+
+  it("retries a transient eTIMS failure but not a missing buyer PIN", async () => {
+    type E = { invoices: { id: string; status: string; buyer_pin: string; kra_invoice_no: string }[] };
+    const e = await ok<E>("GET", "/tax/etims/");
+    const failed = e.invoices.filter((i) => i.status === "failed");
+    expect(failed.length).toBeGreaterThan(0);
+    const transient = failed.find((i) => i.buyer_pin);
+    if (transient) {
+      const res = await ok<{ status: string; kra_invoice_no: string }>("POST", `/tax/etims/${transient.id}/retry/`);
+      expect(res.status).toBe("sent");
+      expect(res.kra_invoice_no).not.toBe("");
+    }
+    const noPin = failed.find((i) => !i.buyer_pin);
+    if (noPin) expect((await call("POST", `/tax/etims/${noPin.id}/retry/`)).status).toBe(400);
+  });
+});

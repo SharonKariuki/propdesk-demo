@@ -101,7 +101,7 @@ export default function ManualIncomePage() {
             <DatePicker label="Date *" {...form.register("date")} error={form.formState.errors.date?.message} />
 
             <label className="block">
-              <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Property *</span>
+              <span className="mb-1 block text-[12px] font-medium text-ink-500">Property *</span>
               <select {...form.register("building")} className={inputCls}>
                 <option value="">Select property…</option>
                 {incomeProperties.map((b) => (
@@ -113,7 +113,7 @@ export default function ManualIncomePage() {
               )}
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Income account *</span>
+              <span className="mb-1 block text-[12px] font-medium text-ink-500">Income account *</span>
               <select {...form.register("account")} className={inputCls}>
                 <option value="">Select GL account…</option>
                 {accounts?.map((a) => (
@@ -125,14 +125,14 @@ export default function ManualIncomePage() {
               )}
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Amount (KES) *</span>
+              <span className="mb-1 block text-[12px] font-medium text-ink-500">Amount (KES) *</span>
               <input {...form.register("amount")} className={inputCls} placeholder="0.00" />
               {form.formState.errors.amount && (
                 <p className="mt-1 text-[11px] text-status-unpaid">{form.formState.errors.amount.message}</p>
               )}
             </label>
             <label className="block sm:col-span-2">
-              <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">Description *</span>
+              <span className="mb-1 block text-[12px] font-medium text-ink-500">Description *</span>
               <input {...form.register("description")} className={inputCls} placeholder="e.g. Maize sale" />
               {form.formState.errors.description && (
                 <p className="mt-1 text-[11px] text-status-unpaid">{form.formState.errors.description.message}</p>
@@ -146,7 +146,7 @@ export default function ManualIncomePage() {
       )}
 
       <Card variant="glass" padding="md">
-        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ink-500">Total recorded</p>
+        <p className="text-[12px] font-medium text-ink-500">Total recorded</p>
         <p className="mt-1 font-display text-4xl font-semibold text-sage-600">KES {total.toLocaleString()}</p>
       </Card>
 

@@ -47,7 +47,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex min-h-[50vh] items-center justify-center px-6">
           <div className="max-w-md text-center">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ochre-600">
+            <p className="text-[12px] font-medium text-ochre-600">
               Something went wrong
             </p>
             <h2 className="mt-2 font-display text-2xl font-semibold leading-tight text-ink-900">
@@ -80,7 +80,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas px-6">
         <div className="max-w-md text-center">
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ochre-600">
+          <p className="text-[12px] font-medium text-ochre-600">
             Something went wrong
           </p>
           <h1 className="mt-2 font-display text-3xl font-semibold leading-tight text-ink-900">

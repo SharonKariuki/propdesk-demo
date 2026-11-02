@@ -45,7 +45,7 @@ export function PhotoPicker({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-content-muted">Photo</p>
+      <p className="text-[12px] font-medium text-content-muted">Photo</p>
       <label
         htmlFor={inputId}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -65,7 +65,7 @@ export function PhotoPicker({
           </span>
         </div>
         {isPlaceholder && (
-          <span className="absolute left-2 top-2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">
+          <span className="absolute left-2 top-2 rounded bg-black/55 px-2 py-0.5 text-[11.5px] font-medium text-white">
             Placeholder
           </span>
         )}

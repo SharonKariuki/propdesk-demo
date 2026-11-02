@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, DoorOpen, Search, User } from "lucide-react";
+import { BookOpen, Building2, DoorOpen, Search, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { searchHelp } from "@/features/help/articles";
+import { showHelp } from "@/features/help/helpBus";
 import { useBuildings } from "@/hooks/useBuildings";
+import { useCan } from "@/hooks/usePermission";
 import { useTenants } from "@/hooks/useTenants";
 import { useUnits } from "@/hooks/useUnits";
 import { cn } from "@/lib/cn";
 
-type ResultKind = "tenant" | "unit" | "building";
+type ResultKind = "tenant" | "unit" | "building" | "help";
 
 interface Result {
   kind: ResultKind;
@@ -29,6 +32,7 @@ export default function GlobalSearch() {
   const { data: tenants } = useTenants();
   const { data: units } = useUnits();
   const { data: buildings } = useBuildings();
+  const can = useCan();
 
   const results = useMemo<Result[]>(() => {
     const q = query.trim().toLowerCase();
@@ -44,7 +48,7 @@ export default function GlobalSearch() {
           id: t.id,
           title: t.full_name,
           subtitle: `${t.unit_label} · ${t.building_name}`,
-          to: `/tenants?q=${encodeURIComponent(t.full_name)}`,
+          to: `/tenants/${t.id}`,
         });
       }
     });
@@ -75,8 +79,13 @@ export default function GlobalSearch() {
       }
     });
 
-    return out.slice(0, 12);
-  }, [query, tenants, units, buildings]);
+    // Questions ("how do I reverse a payment") are answered from help.
+    const help = searchHelp(q, can, 3).map((a, i) => ({
+      kind: "help" as const, id: 9000 + i, title: a.title, subtitle: a.summary, to: `help:${a.title}`,
+    }));
+    const looksLikeQuestion = /^(how|what|why|where|can|undo|reverse|i want|help)\b/.test(q) || q.split(" ").length > 2;
+    return looksLikeQuestion ? [...help, ...out].slice(0, 12) : [...out.slice(0, 10), ...help.slice(0, 2)];
+  }, [query, tenants, units, buildings, can]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -112,7 +121,8 @@ export default function GlobalSearch() {
   };
 
   const go = (r: Result) => {
-    navigate(r.to);
+    if (r.kind === "help") showHelp(r.title);
+    else navigate(r.to);
     setOpen(false);
     setExpanded(false);
     setQuery("");
@@ -142,6 +152,7 @@ export default function GlobalSearch() {
 
   const iconFor = (kind: ResultKind) => {
     if (kind === "tenant") return <User className="h-3.5 w-3.5 text-content-muted" />;
+    if (kind === "help") return <BookOpen className="h-3.5 w-3.5 text-content-muted" />;
     if (kind === "unit") return <DoorOpen className="h-3.5 w-3.5 text-content-muted" />;
     return <Building2 className="h-3.5 w-3.5 text-content-muted" />;
   };
@@ -154,7 +165,7 @@ export default function GlobalSearch() {
           <input
             ref={inputRef}
             type="search"
-            placeholder="Search tenants, units…"
+            placeholder="Search tenants, units, or ask how to…"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -203,7 +214,7 @@ export default function GlobalSearch() {
                   <p className="truncate text-xs font-medium text-content">{r.title}</p>
                   <p className="truncate text-[11px] text-content-muted">{r.subtitle}</p>
                 </div>
-                <span className="text-[10px] uppercase tracking-wider text-content-muted">
+                <span className="text-[11.5px] text-content-muted">
                   {r.kind}
                 </span>
               </button>

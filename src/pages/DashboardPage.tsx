@@ -6,12 +6,14 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
-  Avatar, Eyebrow, GhostBarChart, HeroCard, KpiTile, ListRow, LogoTile, Money, PanelHeader, PropBar,
+  Avatar, GhostBarChart, HeroCard, KpiTile, ListRow, LogoTile, Money, PanelHeader, PropBar,
   QuickAction, RowList, Segmented, SplitBar,
 } from "@/components/ds";
 import { fmt } from "@/lib/figures";
 import SmsBalanceCard from "@/components/SmsBalanceCard";
-import { Badge, Card, EmptyState, ErrorState, Skeleton } from "@/components/ui";
+import { startTour } from "@/features/help/tourStore";
+import { useAuth } from "@/hooks/useAuth";
+import { Badge, Button, Card, EmptyState, ErrorState, Skeleton } from "@/components/ui";
 import { useBuildingPhotoSrc, useBuildings } from "@/hooks/useBuildings";
 import { useDashboard, type AlertType, type RecentPayment } from "@/hooks/useDashboard";
 import { useCan } from "@/hooks/usePermission";
@@ -65,6 +67,29 @@ function PaymentPill({ status }: { status: RecentPayment["status"] }) {
   return <Badge tone="neutral">Recorded</Badge>;
 }
 
+/** Offered once per browser; Help keeps the tour after it is dismissed. */
+function TourOffer() {
+  const { user } = useAuth();
+  const key = `propdesk-tour-offered-${user?.role ?? "user"}`;
+  const [hidden, setHidden] = useState(() => {
+    try { return localStorage.getItem(key) === "1"; } catch { return true; }
+  });
+  if (hidden) return null;
+  const dismiss = () => {
+    try { localStorage.setItem(key, "1"); } catch { /* ignore */ }
+    setHidden(true);
+  };
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-[13.5px]">
+      <p><span className="font-medium">New to Euonia Core?</span> <span className="text-content-secondary">A one-minute tour shows where everything you need lives.</span></p>
+      <div className="flex gap-2">
+        <Button size="sm" variant="ghost" onClick={dismiss}>Not now</Button>
+        <Button size="sm" onClick={() => { dismiss(); startTour(user?.role ?? "owner"); }}>Take the tour</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data, isLoading, isError, refetch } = useDashboard();
   const can = useCan();
@@ -80,7 +105,7 @@ export default function DashboardPage() {
           <h1 className="truncate text-xl font-semibold text-content">Mawingu Properties</h1>
         </div>
       </div>
-      <Eyebrow className="hidden sm:flex">{format(today, "EEE d MMM")}</Eyebrow>
+      <p className="hidden text-[13px] text-content-muted sm:block">{format(today, "EEEE d MMMM yyyy")}</p>
     </header>
   );
 
@@ -124,8 +149,13 @@ export default function DashboardPage() {
 
   const trend = range === "6M" ? income_trend.slice(-6) : income_trend.slice(-12);
   const thisMonth = kpis.collection_received;
-  const lastMonth = kpis.last_month_received ?? 0;
-  const delta = lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : null;
+  // Compare with the same point last month, not the whole of last month.
+  const lastMonthToDate = kpis.last_month_to_date_received ?? 0;
+  const delta = lastMonthToDate > 0 ? ((thisMonth - lastMonthToDate) / lastMonthToDate) * 100 : null;
+  const lastMonthName = format(new Date(today.getFullYear(), today.getMonth() - 1, 1), "MMMM");
+  const dueDay = kpis.due_day ?? 5;
+  const beforeDueDay = today.getDate() <= dueDay;
+  const ordinal = (n: number) => `${n}${n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th"}`;
 
   const actions = ACTIONS.filter((a) => can(a.permission)).slice(0, 4);
   const arrearsCount = kpis.arrears_count ?? alerts.filter((a) => a.type === "overdue").length;
@@ -133,6 +163,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5 lg:space-y-7">
       {header}
+      <TourOffer />
 
       {/* ── Lead: the one number, the actions, the two KPIs, the trend ───── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6 [&>*]:min-w-0">
@@ -143,10 +174,10 @@ export default function DashboardPage() {
               label={`Collected KES ${fmt(kpis.collection_received)} of KES ${fmt(kpis.collection_expected)} in ${monthName}`}
               eyebrow={`Collected · ${monthName}`}
               value={kpis.collection_received}
-              subline={<>of KES {fmt(kpis.collection_expected)} expected</>}
+              subline={<>of KES {fmt(kpis.collection_expected)} billed · KES {fmt(lastMonthToDate)} by this day in {lastMonthName}</>}
               progress={collectionPct}
               footLeft={`${Math.min(collectionPct, 100)}% collected`}
-              footRight={`${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+              footRight={beforeDueDay ? `Rent due on the ${ordinal(dueDay)}` : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
             />
           ) : (
             <HeroCard
@@ -173,12 +204,18 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-2.5">
             {money ? (
               <KpiTile
-                label="Outstanding"
+                label="Overdue"
                 to="/tenants?payment_status=in_arrears"
-                ariaLabel={`Arrears: KES ${fmt(kpis.total_arrears)}`}
-                foot={arrearsCount > 0 ? <Badge tone="unpaid">{arrearsCount} tenant{arrearsCount === 1 ? "" : "s"}</Badge> : "All settled"}
+                ariaLabel={`Overdue: KES ${fmt(kpis.overdue_total ?? kpis.total_arrears)}`}
+                foot={
+                  (kpis.due_not_late_total ?? 0) > 0
+                    ? <span>{kpis.overdue_count ?? arrearsCount} tenants · KES {fmt(kpis.due_not_late_total)} not yet due</span>
+                    : (kpis.overdue_count ?? arrearsCount) > 0
+                      ? <Badge tone="unpaid">{kpis.overdue_count ?? arrearsCount} tenant{(kpis.overdue_count ?? arrearsCount) === 1 ? "" : "s"}</Badge>
+                      : "Nothing overdue"
+                }
               >
-                <Money value={kpis.total_arrears} />
+                <Money value={kpis.overdue_total ?? kpis.total_arrears} />
               </KpiTile>
             ) : (
               <KpiTile label="Tenants" to="/tenants" foot={`${alerts.filter((a) => a.type === "move_out").length} on notice`}>
@@ -203,7 +240,7 @@ export default function DashboardPage() {
                   <Segmented label="Chart range" value={range} onChange={setRange} options={[{ value: "6M", label: "6M" }, { value: "12M", label: "12M" }]} />
                   {delta !== null && (
                     <span className={delta >= 0 ? "text-xs font-semibold text-success" : "text-xs font-semibold text-danger"}>
-                      {delta >= 0 ? "↑" : "↓"} {Math.abs(delta).toFixed(1)}% vs last month
+                      {delta >= 0 ? "Up" : "Down"} {Math.abs(delta).toFixed(0)}% on the same day in {lastMonthName}
                     </span>
                   )}
                 </div>
@@ -273,7 +310,7 @@ export default function DashboardPage() {
               ]} />
             </div>
             <dl className="mt-3 grid grid-cols-5 gap-2 text-center">
-              {([["Paid", occupancy.paid], ["Partial", occupancy.partial], ["Unpaid", occupancy.unpaid], ["Arrears", occupancy.arrears], ["Vacant", occupancy.vacant]] as const).map(([k, v]) => (
+              {([["Paid", occupancy.paid], ["Partial", occupancy.partial], [beforeDueDay ? "Not paid yet" : "Unpaid", occupancy.unpaid], ["In arrears", occupancy.arrears], ["Vacant", occupancy.vacant]] as const).map(([k, v]) => (
                 <div key={k}>
                   <dt className="text-[11px] text-content-muted">{k}</dt>
                   <dd className="num text-[15px] font-semibold text-content">{v}</dd>

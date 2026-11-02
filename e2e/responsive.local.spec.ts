@@ -9,7 +9,7 @@ import { hasNoHorizontalScroll } from "./helpers";
 const ROUTES = [
   "/dashboard", "/buildings", "/buildings/1", "/units", "/tenants", "/tenants/1",
   "/payments", "/reconciliation", "/expenses", "/income", "/water", "/accounting",
-  "/notifications", "/reports", "/activity", "/settings",
+  "/notifications", "/reports", "/activity", "/settings", "/deposits", "/short-stay", "/tax",
 ];
 
 for (const width of [360, 768, 1366]) {

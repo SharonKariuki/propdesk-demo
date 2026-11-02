@@ -52,7 +52,7 @@ original portfolio. Clearing the site's data in the browser does the same.
 | `npm run build` | Type-check + production build to `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm run typecheck` | `tsc -b` only |
-| `npm run lint` | ESLint (0 errors; the 25 warnings are the same 25 the original codebase has) |
+| `npm run lint` | ESLint (0 errors; 23 warnings, all in code inherited from the original) |
 | `npm test` | Vitest: the original component and library tests plus the local-backend suite (`src/data/local/__tests__`) |
 | `npm run test:e2e` | Playwright. It builds the app twice (see below) and runs the original mocked specs and the local-provider CRUD and responsive specs. Run `npx playwright install chromium` once first |
 
@@ -169,18 +169,16 @@ Beyond that, changes are kept to the minimum:
 
 ## Design system
 
-The look is *warm, calm, trustworthy*:
+The look is *quiet financial software*: the numbers are the loudest thing on the screen.
 
-- **Background:** a sun-warmed wash (lilac · peach · honey · sky).
-- **Three surfaces:**
-  - **Glass** for everything you touch: buttons, search, filters, the tab bar and sidebar.
-  - **White cards** for everything you read.
-  - **One black hero card** for the number that matters most.
-- **Gold** (`#e0a03a`) only marks "now" and progress: the current month's bar,
-  progress fills and unread dots.
+- **Background:** one flat, cool stone colour (`#f3f4f1`). No gradient wash.
+- **Surfaces:** white cards and solid white controls with thin borders. No glass or blur.
+- **One coloured surface:** the ledger-green hero card (`#123b32`) for the month's collections.
+- **Gold** (`#e0a03a`) only marks "now": today in calendars, the current month's bar, the tour highlight.
 - **Status** is shown only as pale pills with dark text.
-- **Type:** Inter at 400/500/600 (never 700), with big numbers set tight and
-  tabular. IBM Plex Mono is used for the small uppercase eyebrows.
+- **Labels** are plain sentence case. There are no all-caps mono eyebrows.
+- **Dates** read as `3 Nov 2026` in new screens; typed dates stay `dd/mm/yyyy`.
+- **Type:** Inter at 400/500/600, with tabular figures in every money column.
 
 Where it lives:
 
@@ -271,14 +269,19 @@ hard-deleted, exactly as there.
 |---|---|
 | Buildings | Create (3-step wizard with units and photo), view, edit, change or remove photo, delete (refused once a property has tenancy, expense or income history) |
 | Units | Bulk create, list and filter, adjust rent and statement wording, combine or split commercial spaces, log maintenance (books an expense) |
-| Tenants | Register (books the deposit), view, edit (deposit edits post deposit payments), notice, move out (deposit refund %), move in again, KYC upload, verify and reject, statement PDF, simulated statement emails, CSV export |
+| Tenants | Register (books the deposit), view, edit (deposit edits post deposit payments), notice, move out with an itemised deposit settlement (refund as amount or %), record the refund as sent, settlement statement PDF, move in again, KYC upload, verify and reject, signed lease upload and lease card, statement PDF with a deposit section, simulated statement emails, CSV export |
 | Payments | Record, void (single or whole reference; bank credits can return to Reconciliation), receipts (on screen and PDF), simulated re-send, simulated incoming payment |
 | Reconciliation | Assign unmatched bank credits to tenants |
 | Water and charges | Meter readings with previous-reading chaining and meter replacement; Add Charge (late fee, parking, damage recharge) |
 | Credits and refunds | Credit notes and account credits, hold and release, void with preview, refunds scheduled or sent, mark sent, cancel and void |
 | Expenses and income | Create, list, filter and delete; manual income by account |
 | Accounting | Balance sheet, P&L, trial balance (balances and movements), general ledger (by account and journal), chart of accounts, petty cash, budget vs actual. Each downloads as CSV, XLSX or PDF |
-| Reports | All 17 tabs with filters and CSV, XLSX and PDF export |
+| Reports | Monthly management report (headline figures against last month, 12-month trend, arrears by age, property table, largest overdue balances, written summary) as PDF, Excel or print; 16 further reports grouped into four areas, with filters and CSV, XLSX and PDF export. P&L and the trial balance live in Books |
+| Deposits | Register of deposits held, refunds owed and every settlement, checked against the books |
+| Books checks | Tenant accounts, the deposit register and refunds owed each reconciled to their ledger account; debits equal credits |
+| Short-stay | Three nightly-let units: booking calendar, add or cancel bookings, simulated calendar sync, simulated payout import, payout matching, occupancy, average nightly rate, platform fees, 2% tourism levy |
+| Tax & eTIMS | VAT rent invoices and credit notes with simulated KRA invoice numbers and QR, failures with reasons and retry, VAT and Monthly Rental Income estimates |
+| Help | Help drawer with task articles, a glossary and meaning-aware search (also in the top search box); one-minute tour per role |
 | Notifications | Templates, send to one, all or in-arrears tenants (simulated), history, SMS wallet |
 | Activity, Settings | Audit trail with filters; profile edit, password change, login history, view preferences, demo reset |
 
@@ -299,6 +302,9 @@ the API) and error states (retry) are the original components. Set
 | Cron jobs (monthly rent run) | Run when the app is used: any month not yet billed is raised on the next request |
 | Sentry | Removed |
 | Avatar service | Initials avatars drawn locally (the original sent names to a third-party service) |
+| Property photos (Unsplash) | Building pictures drawn locally as SVG, so the demo works offline |
+| KRA eTIMS | Simulated: invoice numbers, control unit and QR links are generated in the browser; nothing is sent to KRA |
+| Airbnb and other platforms | Simulated: calendar sync and payout reports are generated; commission rates are assumptions |
 
 ---
 
@@ -398,3 +404,18 @@ src/
   pages/ components/ features/ hooks/ lib/   the dashboard UI (from the original)
 e2e/                    Playwright specs (original mocked + *.local.spec.ts)
 ```
+
+## Deposit accounting
+
+A deposit is a liability until the tenant leaves. At move-out the whole deposit leaves
+"Tenant Security Deposits Held" (2100) in one settlement entry:
+
+| Part of the deposit | Goes to | Effect |
+|---|---|---|
+| Unpaid rent deducted | 1040 Accounts Receivable | Shown as a credit on the tenant's account and statement |
+| Damage, cleaning, utilities, other | 4260 Deposit Deductions Kept | Income |
+| Refund | 2150 Deposit Refunds Payable | Owed to the tenant until recorded as sent, then paid from 1030 |
+
+Deductions plus the refund must equal the deposit; the API refuses anything else, and a
+settled deposit cannot be edited. `GET /accounting/checks/` proves the registers tie to the
+ledger. Older browser data is regenerated automatically (schema version 2).

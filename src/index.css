@@ -13,13 +13,13 @@
 @layer base {
   :root {
     /* ── Neutrals ─────────────────────────────────────────────────────── */
-    --fg-rgb: 17 17 19;              /* #111113 text, icons, hero, active chip, + */
+    --fg-rgb: 26 33 30;              /* #1a211e text, icons, hero, active chip, + */
     --bar-rgb: 28 28 32;             /* #1c1c20 chart bars, fills on light */
     --muted-rgb: 107 107 115;        /* #6b6b73 secondary text */
     --soft-rgb: 154 154 163;         /* #9a9aa3 tertiary text, axis labels */
     --hero-muted-rgb: 168 168 178;   /* #a8a8b2 secondary text on black */
     --expected-rgb: 228 228 234;     /* #e4e4ea empty tracks, ghost bars, avatars */
-    --line-rgb: 236 236 240;         /* #ececf0 hairlines */
+    --line-rgb: 229 232 226;         /* #e5e8e2 hairlines */
 
     --neutral-950: 11 11 13;
     --neutral-900: var(--fg-rgb);
@@ -68,13 +68,13 @@
     --notice-edge: 241 223 180;      /* #f1dfb4 */
 
     /* ── Surfaces & text ──────────────────────────────────────────────── */
-    --app: 239 232 226;              /* #efe8e2 base under the wash */
-    --app-from: 239 232 226;
-    --app-to: 239 232 226;
+    --app: 243 244 241;              /* #f3f4f1 stone page */
+    --app-from: 243 244 241;
+    --app-to: 243 244 241;
     --surface: 255 255 255;          /* cards are white */
     --surface-sunk: var(--neutral-100);
     --border: var(--line-rgb);
-    --border-strong: 214 214 220;
+    --border-strong: 209 213 206;
     --hover: 246 245 247;
     --selected: 251 241 218;
 
@@ -84,7 +84,8 @@
     --text-invert: 255 255 255;
     --ring: var(--fg-rgb);
 
-    --hero: var(--fg-rgb);
+    /* The hero card is ledger green: the one coloured surface in the product. */
+    --hero: 18 59 50;                /* #123b32 */
     --hero-muted: var(--hero-muted-rgb);
     --expected: var(--expected-rgb);
     --bar: var(--bar-rgb);
@@ -141,37 +142,33 @@
     --shadow-lg: 0 18px 44px rgba(20, 24, 35, 0.18);
     --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.55);
     --shadow-micro: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-hero: 0 12px 28px rgba(17, 17, 19, 0.25);
+    --shadow-hero: none;
     --shadow-fab: 0 6px 16px rgba(0, 0, 0, 0.25);
 
     --shadow-neu: none;
     --shadow-neu-sm: none;
     --shadow-neu-inset: none;
-    --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 10px 28px rgba(20, 24, 35, 0.14);
+    --shadow-glass: 0 1px 2px rgba(20, 30, 25, 0.05);
     --shadow-float: var(--shadow-md);
     --shadow-ring: 0 0 0 0 transparent;
 
     /* ── Glass material ───────────────────────────────────────────────── */
-    --glass: linear-gradient(140deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.3));
-    --glass-strong-bg: linear-gradient(140deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.5));
-    --glass-edge: rgba(255, 255, 255, 0.75);
-    --glass-blur: blur(22px) saturate(170%);
+    --glass: #ffffff;
+    --glass-strong-bg: #ffffff;
+    --glass-edge: rgb(222 225 219);
+    --glass-blur: none;
 
     /* ── Background wash ──────────────────────────────────────────────── */
-    --wallbg:
-      radial-gradient(circle at 8% 14%, #c3bccb 0, transparent 46%),
-      radial-gradient(circle at 96% 6%, #ebc0a5 0, transparent 44%),
-      radial-gradient(circle at 60% 104%, #efc978 0, transparent 46%),
-      radial-gradient(circle at 4% 96%, #b4cde6 0, transparent 40%),
-      #efe8e2;
+    /* A flat, cool stone page: no wash behind the figures. */
+    --wallbg: #f3f4f1;
 
     /* ── Radii: tap targets are pills, reading surfaces are rounded rects */
     --r-sm: 10px;
     --r-md: 12px;
     --r-lg: 16px;
-    --r-xl: 18px;
-    --r-2xl: 20px;
-    --r-3xl: 22px;
+    --r-xl: 12px;
+    --r-2xl: 12px;
+    --r-3xl: 14px;
   }
 
   /* ── Dark: the same system after dusk — the wash dims, cards go graphite. */
@@ -203,22 +200,17 @@
     --danger: 240 120 126;  --danger-soft: 64 24 28;
     --notice: 50 40 20;     --notice-edge: 80 64 30;
 
-    --hero: 8 8 10;
+    --hero: 22 52 45;
 
 
-    --glass: linear-gradient(140deg, rgba(48, 48, 56, 0.62), rgba(36, 36, 42, 0.36));
-    --glass-strong-bg: linear-gradient(140deg, rgba(44, 44, 52, 0.85), rgba(32, 32, 38, 0.7));
-    --glass-edge: rgba(255, 255, 255, 0.08);
-    --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 28px rgba(0, 0, 0, 0.4);
+    --glass: rgb(28 32 30);
+    --glass-strong-bg: rgb(28 32 30);
+    --glass-edge: rgb(52 58 55);
+    --shadow-glass: none;
     --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.45);
     --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.5);
 
-    --wallbg:
-      radial-gradient(circle at 8% 14%, rgba(195, 188, 203, 0.16) 0, transparent 46%),
-      radial-gradient(circle at 96% 6%, rgba(235, 192, 165, 0.12) 0, transparent 44%),
-      radial-gradient(circle at 60% 104%, rgba(239, 201, 120, 0.12) 0, transparent 46%),
-      radial-gradient(circle at 4% 96%, rgba(180, 205, 230, 0.1) 0, transparent 40%),
-      #121216;
+    --wallbg: #121614;
   }
 
   html,
@@ -245,7 +237,6 @@
     inset: 0;
     z-index: -1;
     background: var(--wallbg);
-    filter: saturate(1.2);
     pointer-events: none;
   }
 
@@ -307,34 +298,17 @@
   .glass-strong {
     background: var(--glass-strong-bg);
   }
-  /* Liquid glass — the quick-action tiles. Thicker than .glass: a bright top
+  /* Quick-action tiles (formerly liquid glass).
      highlight, a soft sheen inside, and a deeper float. */
+  /* Quick-action tiles: solid, bordered, no sheen. */
   .glass-liquid {
-    background:
-      radial-gradient(120% 80% at 30% 0%, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 60%),
-      var(--glass);
-    backdrop-filter: blur(26px) saturate(185%);
-    -webkit-backdrop-filter: blur(26px) saturate(185%);
-    border: 1px solid var(--glass-edge);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      inset 0 -10px 20px rgba(255, 255, 255, 0.14),
-      0 14px 32px rgba(20, 24, 35, 0.16);
-    transition: transform 150ms ease, box-shadow 150ms ease;
+    background: rgb(var(--surface));
+    border: 1px solid rgb(var(--border-strong));
+    transition: border-color 150ms ease, background-color 150ms ease;
   }
   .glass-liquid:hover {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      inset 0 -10px 20px rgba(255, 255, 255, 0.18),
-      0 18px 40px rgba(20, 24, 35, 0.2);
-  }
-  .dark .glass-liquid {
-    background:
-      radial-gradient(120% 80% at 30% 0%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 60%),
-      var(--glass);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 14px 32px rgba(0, 0, 0, 0.45);
+    border-color: rgb(var(--fg-rgb) / 0.35);
+    background: rgb(var(--hover));
   }
   /* A glass panel (rather than a pill) — used for the sidebar and sheets. */
   .glass-panel {
@@ -369,12 +343,11 @@
   }
 
   /* Mono uppercase eyebrow: "COLLECTED · OCTOBER", "TODAY · WED 21 OCT". */
+  /* Small section label: plain sentence case, never shouted. */
   .eyebrow {
-    font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    letter-spacing: 0;
     color: rgb(var(--muted-rgb));
   }
 
@@ -427,4 +400,12 @@
     letter-spacing: 0.08em;
     font-weight: 500;
   }
+}
+
+/* Printing a report: white page, no app chrome, charts kept. */
+@media print {
+  body, body::before { background: #fff !important; }
+  main { padding: 0 !important; }
+  .card, .neu { break-inside: avoid; border-color: #ccc; }
+  @page { margin: 14mm; }
 }

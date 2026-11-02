@@ -21,7 +21,7 @@ export default function RequirePermission({ permission, children }: { permission
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink-100 text-ink-500 dark:bg-ink-800">
         <ShieldOff className="h-6 w-6" />
       </div>
-      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-500">No access</p>
+      <p className="text-[12px] font-medium text-ink-500">No access</p>
       <h1 className="font-display text-3xl font-semibold text-ink-900">This page isn't available to you.</h1>
       <p className="max-w-md text-sm text-ink-600">
         Signed in as {role}. Ask the owner if you need access — roles and what each can do are listed under Settings.

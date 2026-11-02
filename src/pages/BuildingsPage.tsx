@@ -97,7 +97,7 @@ function AdjustRentModal({
         Current rent: <span className="font-medium text-ink-900">KES {Number(unit.monthly_rent).toLocaleString()}</span>
       </p>
 
-      <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+      <label className="mb-1 block text-[12px] font-medium text-ink-500">
         Monthly rent (KES)
       </label>
       <input
@@ -110,7 +110,7 @@ function AdjustRentModal({
         autoFocus
       />
 
-      <label className="mb-1 mt-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+      <label className="mb-1 mt-4 block text-[12px] font-medium text-ink-500">
         Statement descriptor
       </label>
       <input
@@ -197,7 +197,7 @@ function MaintenanceModal({
     >
       <form id={formId} onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+          <label className="mb-1 block text-[12px] font-medium text-ink-500">
             What needs to be done? *
           </label>
           <textarea
@@ -211,7 +211,7 @@ function MaintenanceModal({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+            <label className="mb-1 block text-[12px] font-medium text-ink-500">
               Cost (KES)
             </label>
             <input
@@ -233,7 +233,7 @@ function MaintenanceModal({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+          <label className="mb-1 block text-[12px] font-medium text-ink-500">
             Additional notes
           </label>
           <input
@@ -250,7 +250,7 @@ function MaintenanceModal({
         <p className="mt-6 text-xs text-ink-500">Loading maintenance history…</p>
       ) : requests.length > 0 ? (
         <div className="mt-6 border-t border-ink-100 pt-4 dark:border-ink-700">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-500">
+          <p className="mb-2 text-[12px] font-medium text-ink-500">
             Maintenance history
           </p>
           <ul className="space-y-2">
@@ -376,15 +376,15 @@ function BuildingCard({ building }: { building: Building & { units?: Unit[] } })
         <div className="px-5 pt-4">
           <dl className="grid grid-cols-3 gap-2">
             <div>
-              <dt className="text-[10px] uppercase tracking-wider text-content-muted">Let</dt>
+              <dt className="text-[11.5px] text-content-muted">Let</dt>
               <dd className="font-display text-xl font-semibold tabular-nums text-content">{occupied}</dd>
             </div>
             <div>
-              <dt className="text-[10px] uppercase tracking-wider text-content-muted">Vacant</dt>
+              <dt className="text-[11.5px] text-content-muted">Vacant</dt>
               <dd className="font-display text-xl font-semibold tabular-nums text-content">{vacant}</dd>
             </div>
             <div>
-              <dt className="text-[10px] uppercase tracking-wider text-content-muted">Units</dt>
+              <dt className="text-[11.5px] text-content-muted">Units</dt>
               <dd className="font-display text-xl font-semibold tabular-nums text-content">{total}</dd>
             </div>
           </dl>
