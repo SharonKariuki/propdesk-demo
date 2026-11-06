@@ -360,7 +360,7 @@ function BuildingCard({ building }: { building: Building & { units?: Unit[] } })
           <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate font-display text-lg font-semibold text-white">{building.name}</p>
-              {building.address && <p className="truncate text-xs text-white/80">{building.address}</p>}
+              <p className="truncate text-xs text-white/80">{building.address || "\u00a0"}</p>
             </div>
             <Badge
               tone={occupancyPct >= 80 ? "paid" : occupancyPct >= 50 ? "partial" : "unpaid"}
@@ -397,6 +397,18 @@ function BuildingCard({ building }: { building: Building & { units?: Unit[] } })
         </div>
 
         {/* Unit rents and repairs, edited without leaving the page. */}
+        {/* No units yet: same footer, so the cards line up. */}
+        {total === 0 && (
+          <div className="mt-4 border-t border-hairline">
+            <Link
+              to={`/buildings/${building.id}`}
+              className="flex w-full items-center justify-between px-5 py-3 text-xs font-medium text-content-secondary transition-colors hover:bg-hover"
+            >
+              <span>No units yet: add units</span>
+              <ChevronDown className="h-3.5 w-3.5 -rotate-90" />
+            </Link>
+          </div>
+        )}
         {total > 0 && (
           <div className="mt-4 border-t border-hairline">
             <button

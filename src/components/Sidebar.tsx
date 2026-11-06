@@ -114,8 +114,8 @@ export default function Sidebar() {
                   "group relative flex items-center gap-3 rounded-md py-2 text-[13.5px] font-medium transition-colors",
                   collapsed ? "justify-center px-2" : "px-3",
                   isActive
-                    ? "bg-surface-sunk text-content"
-                    : "text-content-secondary hover:bg-hover hover:text-content"
+                    ? "bg-white/70 text-content shadow-[0_1px_3px_rgba(0,0,0,.06)] dark:bg-white/10"
+                    : "text-content-muted hover:bg-white/40 hover:text-content dark:hover:bg-white/5"
                 )
               }
             >

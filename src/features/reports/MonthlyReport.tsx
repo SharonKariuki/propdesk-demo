@@ -40,7 +40,7 @@ const kes = (n: number) => Math.round(n).toLocaleString("en-KE");
 const short = (n: number) => (Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `${Math.round(n / 1e3)}K` : String(Math.round(n)));
 // Chart colours read as meaning: ink for money in, a quiet grey for what was billed,
 // and arrears darkening with age.
-const INK = "rgb(26 33 30)";
+const INK = "rgb(17 17 19)";
 const BILLED = "rgb(209 213 206)";
 const AGE = ["rgb(214 186 120)", "rgb(196 140 60)", "rgb(170 90 40)", "rgb(150 40 40)"];
 
