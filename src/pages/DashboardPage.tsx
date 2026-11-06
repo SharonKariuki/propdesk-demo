@@ -90,6 +90,9 @@ function TourOffer() {
   );
 }
 
+/** Rows shown in the payments and needs-attention feeds, so the two cards line up. */
+const FEED_ROWS = 6;
+
 export default function DashboardPage() {
   const { data, isLoading, isError, refetch } = useDashboard();
   const can = useCan();
@@ -254,16 +257,16 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ── Payments · properties · what needs attention ─────────────────── */}
+      {/* ── Payments and what needs attention: side by side, one height ──── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6 [&>*]:min-w-0">
         {money && (
-          <Card padding="none" className="min-w-0 px-4 py-[14px] lg:col-span-7 sm:px-5">
+          <Card padding="none" className="flex h-full min-w-0 flex-col px-4 py-[14px] lg:col-span-7 sm:px-5">
             <PanelHeader title="Recent payments" note="Matched automatically" />
             {recent_payments.length === 0 ? (
               <p className="py-6 text-[13px] text-content-muted">No payments recorded yet. When tenants pay, they appear here.</p>
             ) : (
               <RowList>
-                {recent_payments.slice(0, 6).map((p) => (
+                {recent_payments.slice(0, FEED_ROWS).map((p) => (
                   <ListRow
                     key={p.id}
                     name={p.tenant_name}
@@ -274,74 +277,79 @@ export default function DashboardPage() {
                 ))}
               </RowList>
             )}
-            <Link to="/payments" className="mt-2 inline-block text-[13px] font-medium text-content hover:underline">
+            <Link to="/payments" className="mt-auto inline-block pt-2 text-[13px] font-medium text-content hover:underline">
               All payments →
             </Link>
           </Card>
         )}
 
-        <div className={money ? "min-w-0 space-y-4 lg:col-span-5" : "min-w-0 space-y-4 lg:col-span-12"}>
-          {buildings.length > 0 && (
-            <Card padding="none" className="px-4 py-[14px] sm:px-5">
-              <PanelHeader title="By property" note={money ? monthName : "Units let"} />
-              {buildings.map((b) => {
-                const showMoney = money && (b.expected ?? 0) > 0;
-                const pct = showMoney ? ((b.collected ?? 0) / (b.expected ?? 1)) * 100 : b.total ? (b.occupied / b.total) * 100 : 0;
-                return (
-                  <PropBar
-                    key={b.id}
-                    to={`/buildings/${b.id}`}
-                    name={b.name.split(" - ")[0]}
-                    amount={showMoney ? `KES ${fmt(b.collected ?? 0)}` : `${b.occupied} of ${b.total}`}
-                    pct={pct}
-                  />
-                );
-              })}
-            </Card>
-          )}
-
-          <Card padding="none" className="px-4 py-[14px] sm:px-5">
-            <PanelHeader title="Unit status" note={`${kpis.total_units} units`} />
-            <div className="mt-2">
-              <SplitBar parts={[
-                { value: occupancy.paid, tone: "bar", label: "Paid" },
-                { value: occupancy.partial + occupancy.unpaid + occupancy.arrears, tone: "gold", label: "Owing" },
-                { value: occupancy.vacant, tone: "soft", label: "Vacant" },
-              ]} />
-            </div>
-            <dl className="mt-3 grid grid-cols-5 gap-2 text-center">
-              {([["Paid", occupancy.paid], ["Partial", occupancy.partial], [beforeDueDay ? "Not paid yet" : "Unpaid", occupancy.unpaid], ["In arrears", occupancy.arrears], ["Vacant", occupancy.vacant]] as const).map(([k, v]) => (
-                <div key={k}>
-                  <dt className="text-[11px] text-content-muted">{k}</dt>
-                  <dd className="num text-[15px] font-semibold text-content">{v}</dd>
-                </div>
+        <Card padding="none" className={`flex h-full min-w-0 flex-col px-4 py-[14px] sm:px-5 ${money ? "lg:col-span-5" : "lg:col-span-12"}`}>
+          <PanelHeader title="Needs attention" note={alerts.length === 0 ? "All clear" : `${alerts.length} item${alerts.length === 1 ? "" : "s"}`} />
+          {alerts.length === 0 ? (
+            <p className="py-3 text-[13px] text-content-muted">Nothing needs you. Tenants are current and leases are running.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {alerts.slice(0, FEED_ROWS).map((a, i) => (
+                <li key={i} className="flex min-h-[69px] items-center justify-between gap-3 py-2.5 text-[13px]">
+                  {a.tenant_id ? (
+                    <Link to={`/tenants/${a.tenant_id}`} className="leading-snug text-content hover:underline">{a.message}</Link>
+                  ) : (
+                    <span className="leading-snug text-content">{a.message}</span>
+                  )}
+                  <Badge tone={ALERT_PILL[a.type].tone} className="shrink-0">{ALERT_PILL[a.type].label}</Badge>
+                </li>
               ))}
-            </dl>
-          </Card>
+            </ul>
+          )}
+          {alerts.length > FEED_ROWS && (
+            <Link to="/tenants" className="mt-auto inline-block pt-2 text-[13px] font-medium text-content hover:underline">
+              {alerts.length - FEED_ROWS} more →
+            </Link>
+          )}
+        </Card>
+      </section>
 
-          <Card padding="none" className="px-4 py-[14px] sm:px-5">
-            <PanelHeader title="Needs attention" note={alerts.length === 0 ? "All clear" : `${alerts.length} item${alerts.length === 1 ? "" : "s"}`} />
-            {alerts.length === 0 ? (
-              <p className="py-3 text-[13px] text-content-muted">Nothing needs you. Tenants are current and leases are running.</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {alerts.slice(0, 6).map((a, i) => (
-                  <li key={i} className="flex items-start justify-between gap-3 py-2.5 text-[13px]">
-                    {a.tenant_id ? (
-                      <Link to={`/tenants/${a.tenant_id}`} className="leading-snug text-content hover:underline">{a.message}</Link>
-                    ) : (
-                      <span className="leading-snug text-content">{a.message}</span>
-                    )}
-                    <Badge tone={ALERT_PILL[a.type].tone} className="shrink-0">{ALERT_PILL[a.type].label}</Badge>
-                  </li>
-                ))}
-                {alerts.length > 6 && <li className="py-2.5 text-xs text-content-muted">+{alerts.length - 6} more</li>}
-              </ul>
-            )}
+      {/* ── Properties at a glance ───────────────────────────────────────── */}
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6 [&>*]:min-w-0">
+        {buildings.length > 0 && (
+          <Card padding="none" className="h-full px-4 py-[14px] sm:px-5">
+            <PanelHeader title="By property" note={money ? monthName : "Units let"} />
+            {buildings.map((b) => {
+              const showMoney = money && (b.expected ?? 0) > 0;
+              const pct = showMoney ? ((b.collected ?? 0) / (b.expected ?? 1)) * 100 : b.total ? (b.occupied / b.total) * 100 : 0;
+              return (
+                <PropBar
+                  key={b.id}
+                  to={`/buildings/${b.id}`}
+                  name={b.name.split(" - ")[0]}
+                  amount={showMoney ? `KES ${fmt(b.collected ?? 0)}` : `${b.occupied} of ${b.total}`}
+                  pct={pct}
+                />
+              );
+            })}
           </Card>
+        )}
 
-          {can("notifications.view") && <SmsBalanceCard compact />}
-        </div>
+        <Card padding="none" className="h-full px-4 py-[14px] sm:px-5">
+          <PanelHeader title="Unit status" note={`${kpis.total_units} units`} />
+          <div className="mt-2">
+            <SplitBar parts={[
+              { value: occupancy.paid, tone: "bar", label: "Paid" },
+              { value: occupancy.partial + occupancy.unpaid + occupancy.arrears, tone: "gold", label: "Owing" },
+              { value: occupancy.vacant, tone: "soft", label: "Vacant" },
+            ]} />
+          </div>
+          <dl className="mt-3 grid grid-cols-5 gap-2 text-center">
+            {([["Paid", occupancy.paid], ["Partial", occupancy.partial], [beforeDueDay ? "Not paid yet" : "Unpaid", occupancy.unpaid], ["In arrears", occupancy.arrears], ["Vacant", occupancy.vacant]] as const).map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-[11px] text-content-muted">{k}</dt>
+                <dd className="num text-[15px] font-semibold text-content">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+
+        {can("notifications.view") && <SmsBalanceCard compact />}
       </section>
 
       {/* ── Properties ───────────────────────────────────────────────────── */}
